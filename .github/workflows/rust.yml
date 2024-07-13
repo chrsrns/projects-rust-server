@@ -25,6 +25,7 @@ jobs:
       with:
         command: compress
         source: ./target/x86_64-unknown-linux-gnu/release
+        dest: ./release.zip
         format: zip
     - uses: "marvinpinto/action-automatic-releases@latest"
       with:
