@@ -4,6 +4,6 @@ use rocket::fs::{FileServer, relative};
 
 #[launch]
 fn rocket() -> _ {
-    rocket::build().mount("/online-shopping-solidjs", FileServer::from("~/public_html/dist"))
+    rocket::build().mount("/online-shopping-solidjs", FileServer::from("/home/chrsrns-projects-server/online-shopping-solidjs"))
 }
 
