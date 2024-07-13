@@ -1,0 +1,36 @@
+name: Rust Build to Release
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Build
+      run: cargo build --verbose -r --target=x86_64-unknown-linux-gnu
+    - name: Run tests
+      run: cargo test --verbose
+    - name: Compress Directory
+      uses: somaz94/compress-decompress@v1
+      with:
+        command: compress
+        source: ./target/x86_64-unknown-linux-gnu/release
+        format: zip
+    - uses: "marvinpinto/action-automatic-releases@latest"
+      with:
+        repo_token: "${{ secrets.GITHUB_TOKEN }}"
+        automatic_release_tag: "latest"
+        prerelease: true
+        title: "Development Build"
+        files: |
+          release.zip
