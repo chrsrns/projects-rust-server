@@ -41,4 +41,4 @@ jobs:
         webhook_url: https://my.domcloud.co/api/githubdeploy
         webhook_secret: ${{ secrets.WEBHOOK_SECRET }}
         webhook_auth: ${{ secrets.WEBHOOK_AUTH }}
-        data: '{"commands":["rm -rf ~/public_html", "curl -LO https://github.com/chrsrns/projects-rust-server/releases/download/latest/release.zip", "unzip release.zip -d .", "cp -r release/* ~/public_html/", "rm -rf release.zip release/"]}'
+        data: '{"commands":["rm -rf ~/public_html/*", "curl -LO https://github.com/chrsrns/projects-rust-server/releases/download/latest/release.zip", "unzip release.zip -d .", "cp -r release/* ~/public_html/", "rm -rf release.zip release/"]}'
