@@ -1,5 +1,5 @@
 name: Sync on DOM Cloud
-'on':
+on:
   release:
     types: [published]
 jobs:
