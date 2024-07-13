@@ -26,8 +26,11 @@ jobs:
         command: compress
         source: ./target/x86_64-unknown-linux-gnu/release
         format: zip
-    - name: List files
-      run: |
-        ls .
-        ls ./target/x86_64-unknown-linux-gnu/
-        ls ./target/x86_64-unknown-linux-gnu/release
+    - uses: "marvinpinto/action-automatic-releases@latest"
+      with:
+        repo_token: "${{ secrets.GITHUB_TOKEN }}"
+        automatic_release_tag: "latest"
+        prerelease: true
+        title: "Development Build"
+        files: |
+          target/x86_64-unknown-linux-gnu/release.zip
