@@ -17,21 +17,17 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Build
-      run: cargo build --verbose -r --target=x86_64-unknown-linux-gnu
+      run: cargo build -r --target=x86_64-unknown-linux-gnu
     - name: Run tests
-      run: cargo test --verbose
+      run: cargo test
     - name: Compress Directory
       uses: somaz94/compress-decompress@v1
       with:
         command: compress
         source: ./target/x86_64-unknown-linux-gnu/release
-        dest: ./release.zip
         format: zip
-    - uses: "marvinpinto/action-automatic-releases@latest"
-      with:
-        repo_token: "${{ secrets.GITHUB_TOKEN }}"
-        automatic_release_tag: "latest"
-        prerelease: true
-        title: "Development Build"
-        files: |
-          release.zip
+    - name: List files
+      run: |
+        ls .
+        ls ./target/x86_64-unknown-linux-gnu/
+        ls ./target/x86_64-unknown-linux-gnu/release
