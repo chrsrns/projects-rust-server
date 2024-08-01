@@ -32,7 +32,14 @@ fn rocket() -> _ {
     .unwrap();
 
     // TODO: Consider moving the function defs behind an encapsulated API
-    db::init_database(&mut client);
+    match db::init_database(&mut client) {
+        Ok(_) => println!("Successfully initialized database"),
+        Err(error) => {
+            println!("Failed to initialize database. Aborting... ");
+            let unwrapped = error.code().unwrap().code();
+            println!("Error reason: {}", unwrapped);
+        }
+    };
     match User::get_all_users(&mut client) {
         Ok(results) => {
             for result in results {
