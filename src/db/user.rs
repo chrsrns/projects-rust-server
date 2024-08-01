@@ -32,10 +32,17 @@ impl User {
     }
 
     pub fn add(&self, client: &mut Client) -> Result<(), Error> {
-        let result = client.execute(
-            "INSERT INTO app_user (username, password, email) VALUES ($1, $2, $3)",
-            &[&self.username, &self.password, &self.email],
-        );
+        let result = if self.id.is_none() {
+            client.execute(
+                "INSERT INTO app_user (id, username, password, email) VALUES ($1, $2, $3)",
+                &[&self.id, &self.username, &self.password, &self.email],
+            )
+        } else {
+            client.execute(
+                "INSERT INTO app_user (username, password, email) VALUES ($1, $2, $3)",
+                &[&self.username, &self.password, &self.email],
+            )
+        };
 
         match result {
             Ok(_) => {
