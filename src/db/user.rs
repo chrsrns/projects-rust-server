@@ -7,6 +7,7 @@ pub struct User {
     pub email: String,
 }
 
+// TODO: Update/copy implementation from shop_items, which has simpler better handling.
 impl User {
     pub fn add_user(
         client: &mut Client,
