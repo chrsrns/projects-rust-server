@@ -34,7 +34,7 @@ impl User {
     pub fn add(&self, client: &mut Client) -> Result<(), Error> {
         let result = if self.id.is_none() {
             client.execute(
-                "INSERT INTO app_user (id, username, password, email) VALUES ($1, $2, $3)",
+                "INSERT INTO app_user (id, username, password, email) VALUES ($1, $2, $3, $4)",
                 &[&self.id, &self.username, &self.password, &self.email],
             )
         } else {
