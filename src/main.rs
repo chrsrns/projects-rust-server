@@ -24,12 +24,15 @@ async fn files() -> Option<NamedFile> {
 
 #[launch]
 fn rocket() -> _ {
-    // TODO: Properly handle err case, instead of confidently unwrapping
-    let mut client = Client::connect(
+    let client_connection = Client::connect(
         "postgresql://postgres:postgres@localhost:5432/postgres",
         NoTls,
-    )
-    .unwrap();
+    );
+    if client_connection.is_err() {
+        // Just print an error message. The attempt to unwrap will terminate the program.
+        println!("Failed to connect to PostgreSQL database. Termination imminent...");
+    }
+    let mut client = client_connection.unwrap();
 
     // TODO: Consider moving the function defs behind an encapsulated API
     match db::init_database(&mut client) {
