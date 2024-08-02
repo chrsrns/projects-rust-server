@@ -62,4 +62,33 @@ impl ShopItem {
             Err(_) => Err("Error occurred in querying the database"),
         }
     }
+
+    pub fn get_all(client: &mut Client) -> Result<Vec<ShopItem>, &str> {
+        let query = client.query("SELECT id, name, img_link, price FROM shop_item", &[]);
+
+        let mut results = Vec::new();
+
+        match query {
+            Ok(rows) => {
+                if !rows.is_empty() {
+                    for row in rows {
+                        let id: i32 = row.get(0);
+                        let name: String = row.get(1);
+                        let img_link: String = row.get(2);
+                        let price: f32 = row.get(3);
+                        let shop_item = ShopItem {
+                            id: Some(id),
+                            name,
+                            img_link,
+                            price,
+                        };
+                        results.push(shop_item);
+                    }
+                    return Ok(results);
+                }
+                Err("No shop item found.")
+            }
+            Err(_) => Err("Error occurred in querying the database"),
+        }
+    }
 }
