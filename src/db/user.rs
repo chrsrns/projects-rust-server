@@ -16,35 +16,27 @@ pub struct User {
 
 // TODO: Update/copy implementation from shop_items, which has simpler better handling.
 impl User {
-    pub async fn add(&self, mut db: Connection<Db>) -> Result<Vec<PgRow>, sqlx::Error> {
-        let result = if self.id.is_none() {
-            sqlx::query!(
-                "INSERT INTO app_user (username, upassword, email) VALUES ($1, $2, $3 )",
-                &self.username,
-                &self.upassword,
-                &self.email
-            )
-            .fetch(&mut **db)
-            .try_collect::<Vec<_>>()
-            .await
-        } else {
-            let id_unwrapped = &self.id.unwrap();
-            sqlx::query!(
-                "INSERT INTO app_user (id, username, upassword, email) VALUES ($1, $2, $3, $4)",
-                &id_unwrapped,
-                &self.username,
-                &self.upassword,
-                &self.email
-            )
-            .fetch(&mut **db)
-            .try_collect::<Vec<_>>()
-            .await
-        };
+    pub async fn add(&self, mut db: Connection<Db>) -> Result<User, sqlx::Error> {
+        let result = sqlx::query!(
+            "INSERT INTO app_user (username, upassword, email) VALUES ($1, $2, $3 ) RETURNING id",
+            &self.username,
+            &self.upassword,
+            &self.email
+        )
+        .fetch(&mut **db)
+        .try_collect::<Vec<_>>()
+        .await;
 
         match result {
             Ok(result) => {
                 println!("Successfully added new user {}", &self.username);
-                Ok(result)
+                let id_returned = result.first().expect("returning result").id;
+                Ok(User {
+                    id: Some(id_returned),
+                    username: self.username.clone(),
+                    upassword: self.upassword.clone(),
+                    email: self.email.clone(),
+                })
             }
             Err(error) => {
                 println!("Error when creating new user with: [ {} ]", &self.username);
