@@ -1,5 +1,8 @@
-use postgres::{Client, Error};
+use futures::stream::TryStreamExt;
+use rocket_db_pools::Connection;
 use serde::{Deserialize, Serialize};
+
+use crate::Db;
 
 #[derive(Serialize, Deserialize)]
 pub struct User {
@@ -12,40 +15,29 @@ pub struct User {
 
 // TODO: Update/copy implementation from shop_items, which has simpler better handling.
 impl User {
-    pub fn add_user(
-        client: &mut Client,
-        username: &str,
-        password: &str,
-        email: &str,
-    ) -> Result<(), Error> {
-        let result = client.execute(
-            "INSERT INTO app_user (username, password, email) VALUES ($1, $2, $3)",
-            &[&username, &password, &email],
-        );
-
-        match result {
-            Ok(_) => {
-                println!("Successfully added new user {}", username);
-                Ok(())
-            }
-            Err(error) => {
-                println!("Error when creating new user with: [ {} ]", username);
-                Err(error)
-            }
-        }
-    }
-
-    pub fn add(&self, client: &mut Client) -> Result<(), Error> {
+    pub async fn add(&self, mut db: Connection<Db>) -> Result<(), sqlx::Error> {
         let result = if self.id.is_none() {
-            client.execute(
-                "INSERT INTO app_user (id, username, password, email) VALUES ($1, $2, $3, $4)",
-                &[&self.id, &self.username, &self.upassword, &self.email],
+            sqlx::query!(
+                "INSERT INTO app_user (username, upassword, email) VALUES ($1, $2, $3 )",
+                &self.username,
+                &self.upassword,
+                &self.email
             )
+            .fetch(&mut **db)
+            .try_collect::<Vec<_>>()
+            .await
         } else {
-            client.execute(
-                "INSERT INTO app_user (username, password, email) VALUES ($1, $2, $3)",
-                &[&self.username, &self.upassword, &self.email],
+            let id_unwrapped = &self.id.unwrap();
+            sqlx::query!(
+                "INSERT INTO app_user (id, username, upassword, email) VALUES ($1, $2, $3, $4)",
+                &id_unwrapped,
+                &self.username,
+                &self.upassword,
+                &self.email
             )
+            .fetch(&mut **db)
+            .try_collect::<Vec<_>>()
+            .await
         };
 
         match result {
@@ -60,23 +52,23 @@ impl User {
         }
     }
 
-    pub fn get_all_users(client: &mut Client) -> Result<Vec<User>, Error> {
-        let mut results = Vec::new();
+    pub async fn get_all_users(mut db: Connection<Db>) -> Result<Vec<User>, sqlx::Error> {
+        let results = sqlx::query!("SELECT id, username, upassword, email FROM app_user")
+            .fetch(&mut **db)
+            .map_ok(|r| User {
+                id: Some(r.id),
+                username: r.username,
+                upassword: r.upassword,
+                email: r.email,
+            })
+            .try_collect::<Vec<_>>()
+            .await;
 
-        for row in client.query("SELECT id, username, password, email FROM app_user", &[])? {
-            let id: i32 = row.get(0);
-            let username: String = row.get(1);
-            let password: String = row.get(2);
-            let email: String = row.get(3);
-            let user = User {
-                id: Some(id),
-                username,
-                upassword: password,
-                email,
-            };
-            results.push(user);
+        match results {
+            Ok(results_ok) => {
+                return Ok(results_ok);
+            }
+            Err(error) => return Err(error),
         }
-
-        Ok(results)
     }
 }
