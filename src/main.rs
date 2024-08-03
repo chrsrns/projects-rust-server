@@ -8,14 +8,14 @@ use std::path::{Path, PathBuf};
 
 mod db;
 
-#[get("/assets/<file..>")]
+#[get("/online-shopping-solidjs/assets/<file..>")]
 async fn shop_solidjs(file: PathBuf) -> Option<NamedFile> {
     NamedFile::open(Path::new("online-shopping-solidjs/assets/").join(file))
         .await
         .ok()
 }
 
-#[get("/<_..>", rank = 2)]
+#[get("/online-shopping-solidjs/<_..>", rank = 2)]
 async fn files() -> Option<NamedFile> {
     NamedFile::open(Path::new("online-shopping-solidjs/index.html"))
         .await
