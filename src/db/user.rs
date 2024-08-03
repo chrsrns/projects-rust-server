@@ -1,6 +1,9 @@
 use postgres::{Client, Error};
+use serde::{Deserialize, Serialize};
 
+#[derive(Serialize, Deserialize)]
 pub struct User {
+    #[serde(skip_deserializing, skip_serializing_if = "Option::is_none")]
     pub id: Option<i32>,
     pub username: String,
     pub password: String,
