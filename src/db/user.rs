@@ -6,7 +6,7 @@ pub struct User {
     #[serde(skip_deserializing, skip_serializing_if = "Option::is_none")]
     pub id: Option<i32>,
     pub username: String,
-    pub password: String,
+    pub upassword: String,
     pub email: String,
 }
 
@@ -39,12 +39,12 @@ impl User {
         let result = if self.id.is_none() {
             client.execute(
                 "INSERT INTO app_user (id, username, password, email) VALUES ($1, $2, $3, $4)",
-                &[&self.id, &self.username, &self.password, &self.email],
+                &[&self.id, &self.username, &self.upassword, &self.email],
             )
         } else {
             client.execute(
                 "INSERT INTO app_user (username, password, email) VALUES ($1, $2, $3)",
-                &[&self.username, &self.password, &self.email],
+                &[&self.username, &self.upassword, &self.email],
             )
         };
 
@@ -71,7 +71,7 @@ impl User {
             let user = User {
                 id: Some(id),
                 username,
-                password,
+                upassword: password,
                 email,
             };
             results.push(user);
