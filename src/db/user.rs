@@ -1,6 +1,7 @@
 use futures::stream::TryStreamExt;
 use rocket_db_pools::Connection;
 use serde::{Deserialize, Serialize};
+use sqlx::postgres::PgRow;
 
 use crate::Db;
 
@@ -15,7 +16,7 @@ pub struct User {
 
 // TODO: Update/copy implementation from shop_items, which has simpler better handling.
 impl User {
-    pub async fn add(&self, mut db: Connection<Db>) -> Result<(), sqlx::Error> {
+    pub async fn add(&self, mut db: Connection<Db>) -> Result<Vec<PgRow>, sqlx::Error> {
         let result = if self.id.is_none() {
             sqlx::query!(
                 "INSERT INTO app_user (username, upassword, email) VALUES ($1, $2, $3 )",
@@ -41,9 +42,9 @@ impl User {
         };
 
         match result {
-            Ok(_) => {
+            Ok(result) => {
                 println!("Successfully added new user {}", &self.username);
-                Ok(())
+                Ok(result)
             }
             Err(error) => {
                 println!("Error when creating new user with: [ {} ]", &self.username);
