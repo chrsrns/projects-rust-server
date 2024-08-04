@@ -8,5 +8,5 @@ CREATE TABLE IF NOT EXISTS shop_item (
     id SERIAL PRIMARY KEY,
     iname VARCHAR UNIQUE NOT NULL,
     img_link VARCHAR NOT NULL,
-    price DECIMAL NOT NULL
+    price REAL NOT NULL
 );
