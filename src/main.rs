@@ -1,6 +1,7 @@
 #[macro_use]
 extern crate rocket;
 
+use db::shop_item::ShopItem;
 use db::user::User;
 use rocket::response::status::Created;
 use rocket::serde::json::Json;
@@ -68,6 +69,39 @@ async fn create_user(db: Connection<Db>, mut user: Json<User>) -> Result<Created
     }
 }
 
+#[get("/api/shopitems")]
+async fn shop_items(db: Connection<Db>) -> Result<Json<Vec<ShopItem>>> {
+    let results = ShopItem::get_all(db).await?;
+    Ok(Json(results))
+}
+
+#[post("/api/shopitem", data = "<shop_item>")]
+async fn create_shop_item(
+    db: Connection<Db>,
+    mut shop_item: Json<ShopItem>,
+) -> Result<Created<Json<ShopItem>>> {
+    // NOTE: sqlx#2543, sqlx#1648 mean we can't use the pithier `fetch_one()`.
+    let shop_item_deser = ShopItem {
+        id: None,
+        iname: shop_item.iname.clone(),
+        img_link: shop_item.img_link.clone(),
+        price: shop_item.price,
+    };
+    let result = shop_item_deser.add(db).await?;
+
+    match result.id {
+        Some(resulted_id) => {
+            shop_item.id = Some(resulted_id);
+            Ok(Created::new("/").body(shop_item))
+        }
+
+        None => {
+            // TODO: Improve error handling
+            panic!("This shouldn't have happened, but it did");
+        }
+    }
+}
+
 #[get("/api/users")]
 async fn users(db: Connection<Db>) -> Result<Json<Vec<User>>> {
     let results = User::get_all_users(db).await?;
@@ -76,7 +110,15 @@ async fn users(db: Connection<Db>) -> Result<Json<Vec<User>>> {
 
 #[launch]
 async fn rocket() -> _ {
-    rocket::build()
-        .attach(Db::init())
-        .mount("/", routes![files, shop_solidjs, users, create_user])
+    rocket::build().attach(Db::init()).mount(
+        "/",
+        routes![
+            files,
+            shop_solidjs,
+            users,
+            create_user,
+            shop_items,
+            create_shop_item
+        ],
+    )
 }
