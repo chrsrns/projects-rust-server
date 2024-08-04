@@ -1,7 +1,6 @@
 use futures::stream::TryStreamExt;
 use rocket_db_pools::Connection;
 use serde::{Deserialize, Serialize};
-use sqlx::postgres::PgRow;
 
 use crate::Db;
 
@@ -58,10 +57,8 @@ impl User {
             .await;
 
         match results {
-            Ok(results_ok) => {
-                return Ok(results_ok);
-            }
-            Err(error) => return Err(error),
+            Ok(results_ok) => Ok(results_ok),
+            Err(error) => Err(error),
         }
     }
 }
