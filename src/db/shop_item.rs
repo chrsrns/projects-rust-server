@@ -1,94 +1,79 @@
-use postgres::Client;
+use futures::stream::TryStreamExt;
+use futures::TryFutureExt;
+use rocket_db_pools::Connection;
+use serde::{Deserialize, Serialize};
 
+use crate::Db;
+
+#[derive(Serialize, Deserialize)]
 pub struct ShopItem {
+    #[serde(skip_deserializing, skip_serializing_if = "Option::is_none")]
     pub id: Option<i32>,
-    pub name: String,
+    pub iname: String,
     pub img_link: String,
     pub price: f32,
 }
 
 impl ShopItem {
-    pub fn add(&self, client: &mut Client) -> Result<(), &str> {
-        let result = if self.id.is_none() {
-            client.execute(
-                "INSERT INTO shop_item (id, name, img_link, price) VALUES ($1, $2, $3, $4)",
-                &[&self.id, &self.name, &self.img_link, &self.price],
-            )
-        } else {
-            client.execute(
-                "INSERT INTO shop_item (name, img_link, price) VALUES ($1, $2, $3)",
-                &[&self.name, &self.img_link, &self.price],
-            )
-        };
+    pub async fn add(&self, mut db: Connection<Db>) -> Result<ShopItem, sqlx::Error> {
+        let result = sqlx::query!(
+            "INSERT INTO shop_item (iname, img_link, price) VALUES ($1, $2, $3) RETURNING id",
+            &self.iname,
+            &self.img_link,
+            &self.price
+        )
+        .fetch(&mut **db)
+        .try_collect::<Vec<_>>()
+        .await;
 
         match result {
-            Ok(_) => {
-                println!("Successfully added new shop item {}", &self.name);
-                Ok(())
+            Ok(result) => {
+                println!("Successfully added new  {}", &self.iname);
+                let id_returned = result.first().expect("returning result").id;
+                Ok(ShopItem {
+                    id: Some(id_returned),
+                    iname: self.iname.clone(),
+                    img_link: self.img_link.clone(),
+                    price: self.price,
+                })
             }
-            Err(_) => {
-                // TODO: Use same text on print and an error result string
-                println!("Error when creating new shop item with: [ {} ]", &self.name);
-                Err("Error when creating new shop item")
+            Err(error) => {
+                println!(
+                    "Error when creating new shop item with: [ {} ]",
+                    &self.iname
+                );
+                Err(error)
             }
         }
     }
 
-    pub fn get_by_id(client: &mut Client, id: i32) -> Result<ShopItem, &str> {
-        let query = client.query(
-            "SELECT id, name, img_link, price FROM shop_item WHERE id=$1",
-            &[&id],
-        );
-
-        match query {
-            Ok(rows) => {
-                if !rows.is_empty() {
-                    let row = &rows[0];
-
-                    let id: i32 = row.get(0);
-                    let name: String = row.get(1);
-                    let img_link: String = row.get(2);
-                    let price: f32 = row.get(3);
-                    let shop_item = ShopItem {
-                        id: Some(id),
-                        name,
-                        img_link,
-                        price,
-                    };
-                    return Ok(shop_item);
-                }
-                Err("No shop item found.")
-            }
-            Err(_) => Err("Error occurred in querying the database"),
-        }
+    pub async fn get_by_id(mut db: Connection<Db>, id: i32) -> Result<ShopItem, sqlx::Error> {
+        sqlx::query!(
+            "SELECT id, iname, img_link, price FROM shop_item WHERE id=$1",
+            id,
+        )
+        .fetch_one(&mut **db)
+        .map_ok(|r| ShopItem {
+            id: Some(r.id),
+            iname: r.iname,
+            img_link: r.img_link,
+            price: r.price,
+        })
+        .await
+        // TODO: Add custom completion prints
     }
 
-    pub fn get_all(client: &mut Client) -> Result<Vec<ShopItem>, &str> {
-        let query = client.query("SELECT id, name, img_link, price FROM shop_item", &[]);
-
-        let mut results = Vec::new();
-
-        match query {
-            Ok(rows) => {
-                if !rows.is_empty() {
-                    for row in rows {
-                        let id: i32 = row.get(0);
-                        let name: String = row.get(1);
-                        let img_link: String = row.get(2);
-                        let price: f32 = row.get(3);
-                        let shop_item = ShopItem {
-                            id: Some(id),
-                            name,
-                            img_link,
-                            price,
-                        };
-                        results.push(shop_item);
-                    }
-                    return Ok(results);
-                }
-                Err("No shop item found.")
-            }
-            Err(_) => Err("Error occurred in querying the database"),
-        }
+    pub async fn get_all(mut db: Connection<Db>) -> Result<Vec<ShopItem>, sqlx::Error> {
+        sqlx::query!("SELECT id, iname, img_link, price FROM shop_item",)
+            .fetch(&mut **db)
+            .map_ok(|r| ShopItem {
+                id: Some(r.id),
+                iname: r.iname,
+                img_link: r.img_link,
+                price: r.price,
+            })
+            .try_collect::<Vec<_>>()
+            .await
+        // TODO: Add custom completion prints
     }
 }
