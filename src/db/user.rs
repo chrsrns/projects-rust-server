@@ -56,6 +56,7 @@ impl User {
             .try_collect::<Vec<_>>()
             .await;
 
+        // TODO: Add custom completion prints
         match results {
             Ok(results_ok) => Ok(results_ok),
             Err(error) => Err(error),
