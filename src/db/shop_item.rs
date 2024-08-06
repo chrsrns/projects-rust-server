@@ -1,5 +1,4 @@
 use futures::stream::TryStreamExt;
-use futures::TryFutureExt;
 use rocket_db_pools::Connection;
 use serde::{Deserialize, Serialize};
 
@@ -49,31 +48,19 @@ impl ShopItem {
     }
 
     pub async fn get_by_id(mut db: Connection<Db>, id: i32) -> Result<ShopItem, sqlx::Error> {
-        sqlx::query!(
+        sqlx::query_as!(
+            ShopItem,
             "SELECT id, iname, img_link, price FROM shop_item WHERE id=$1",
             id,
         )
         .fetch_one(&mut **db)
-        .map_ok(|r| ShopItem {
-            id: Some(r.id),
-            iname: r.iname,
-            img_link: r.img_link,
-            price: r.price,
-        })
         .await
         // TODO: Add custom completion prints
     }
 
     pub async fn get_all(mut db: Connection<Db>) -> Result<Vec<ShopItem>, sqlx::Error> {
-        sqlx::query!("SELECT id, iname, img_link, price FROM shop_item",)
-            .fetch(&mut **db)
-            .map_ok(|r| ShopItem {
-                id: Some(r.id),
-                iname: r.iname,
-                img_link: r.img_link,
-                price: r.price,
-            })
-            .try_collect::<Vec<_>>()
+        sqlx::query_as!(ShopItem, "SELECT id, iname, img_link, price FROM shop_item",)
+            .fetch_all(&mut **db)
             .await
         // TODO: Add custom completion prints
     }

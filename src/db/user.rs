@@ -45,15 +45,8 @@ impl User {
     }
 
     pub async fn get_all_users(mut db: Connection<Db>) -> Result<Vec<User>, sqlx::Error> {
-        let results = sqlx::query!("SELECT id, username, upassword, email FROM app_user")
-            .fetch(&mut **db)
-            .map_ok(|r| User {
-                id: Some(r.id),
-                username: r.username,
-                upassword: r.upassword,
-                email: r.email,
-            })
-            .try_collect::<Vec<_>>()
+        let results = sqlx::query_as!(User, "SELECT id, username, upassword, email FROM app_user")
+            .fetch_all(&mut **db)
             .await;
 
         // TODO: Add custom completion prints
