@@ -5,7 +5,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::Db;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, sqlx::FromRow)]
+#[sqlx(type_name = "shop_item")]
 pub struct ShopItem {
     #[serde(skip_deserializing, skip_serializing_if = "Option::is_none")]
     pub id: Option<i32>,
