@@ -33,3 +33,43 @@ pub struct Content {
     pub ctype: ContentType,
     pub content: String,
 }
+
+impl BlogItem {
+    pub async fn add(&self, mut db: Connection<Db>) -> Result<BlogItem, sqlx::Error> {
+        let result = sqlx::query!(
+            "INSERT INTO blog_item (blog_title, header_img) VALUES ($1, $2) RETURNING id",
+            &self.blog_title,
+            &self.header_img,
+        )
+        .fetch(&mut **db)
+        .try_collect::<Vec<_>>()
+        .await;
+
+        match result {
+            Ok(result) => {
+                println!("Successfully added new  {}", &self.blog_title);
+                let id_returned = result.first().expect("returning result").id;
+                Ok(BlogItem {
+                    id: Some(id_returned),
+                    blog_title: self.blog_title.clone(),
+                    header_img: self.header_img.clone(),
+                    content: Vec::new(),
+                })
+            }
+            Err(error) => {
+                println!(
+                    "Error when creating new blog item with: [ {} ]",
+                    &self.blog_title
+                );
+                Err(error)
+            }
+        }
+    }
+
+    pub async fn get_all(mut db: Connection<Db>) -> Result<Vec<BlogItem>, sqlx::Error> {
+        sqlx::query_as("SELECT id, blog_title, header_img FROM blog_item")
+            .fetch_all(&mut **db)
+            .await
+        // TODO: Add custom completion prints
+    }
+}
