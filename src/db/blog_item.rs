@@ -16,6 +16,7 @@ pub struct BlogItem {
     pub id: Option<i32>,
     pub blog_title: String,
     pub header_img: String,
+    #[sqlx(skip)]
     pub content: Vec<Content>,
 }
 
