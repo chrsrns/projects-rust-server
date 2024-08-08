@@ -72,4 +72,46 @@ impl BlogItem {
             .await
         // TODO: Add custom completion prints
     }
+
+impl Content {
+    pub async fn add(&self, mut db: Connection<Db>) -> Result<Content, sqlx::Error> {
+        let result = sqlx::query!(
+            "INSERT INTO content (blog_id, ctype, content) VALUES ($1, $2, $3) RETURNING id",
+            &self.blog_id,
+            &self.ctype as &ContentType,
+            &self.content,
+        )
+        .fetch_one(&mut **db)
+        .await;
+
+        match result {
+            Ok(record) => {
+                println!("Successfully added new content");
+                let id_returned = record.id;
+                Ok(Content {
+                    id: Some(id_returned),
+                    blog_id: self.blog_id,
+                    ctype: self.ctype.clone(),
+                    content: self.content.clone(),
+                })
+            }
+            Err(error) => {
+                println!("Error when creating new content");
+                Err(error)
+            }
+        }
+    }
+    pub async fn get_all_from_blog(
+        mut db: Connection<Db>,
+        blog_id: i32,
+    ) -> Result<Vec<Content>, sqlx::Error> {
+        sqlx::query_as!(
+            Content,
+            r#"SELECT id, blog_id, ctype as "ctype: ContentType", content FROM content WHERE blog_id=$1"#,
+            blog_id
+        )
+        .fetch_all(&mut **db)
+        .await
+        // TODO: Add custom completion prints
+    }
 }
