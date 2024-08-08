@@ -9,6 +9,7 @@ rocket = { version = "0.5.1", features = ["json"] }
 sqlx = { version = "0.7", features = ["runtime-tokio", "postgres", "macros"] }
 serde = "1.0.204"
 futures = "0.3"
+either = "1.13"
 
 [dependencies.rocket_db_pools]
 version = "0.2.0"
