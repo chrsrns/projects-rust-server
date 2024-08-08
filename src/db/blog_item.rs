@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, sqlx::Type)]
+#[derive(Serialize, Deserialize, Clone, sqlx::Type)]
 #[sqlx(type_name = "content_type", rename_all = "lowercase")]
 pub enum ContentType {
     BigHeader,
