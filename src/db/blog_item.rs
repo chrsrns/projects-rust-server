@@ -1,3 +1,4 @@
+use either::*;
 use futures::stream::TryStreamExt;
 use rocket_db_pools::Connection;
 use serde::{Deserialize, Serialize};
@@ -72,6 +73,26 @@ impl BlogItem {
             .await
         // TODO: Add custom completion prints
     }
+
+    pub async fn query_contents(
+        &mut self,
+        db: Connection<Db>,
+    ) -> Result<(), Either<sqlx::Error, ()>> {
+        match &self.id {
+            None => Err(Right(())),
+            Some(blog_id) => {
+                let contents_result = Content::get_all_from_blog(db, *blog_id).await;
+                match contents_result {
+                    Ok(mut contents) => {
+                        self.content.append(&mut contents);
+                        Ok(())
+                    }
+                    Err(error) => Err(Left(error)),
+                }
+            }
+        }
+    }
+}
 
 impl Content {
     pub async fn add(&self, mut db: Connection<Db>) -> Result<Content, sqlx::Error> {
