@@ -1,6 +1,7 @@
 #[macro_use]
 extern crate rocket;
 
+use db::blog_item::{BlogItem, Content};
 use db::shop_item::ShopItem;
 use db::user::User;
 use rocket::response::status::Created;
@@ -102,6 +103,18 @@ async fn create_shop_item(
     }
 }
 
+#[get("/api/blogs")]
+async fn blogs(db: Connection<Db>) -> Result<Json<Vec<BlogItem>>> {
+    let results = BlogItem::get_all(db).await?;
+    Ok(Json(results))
+}
+
+#[get("/api/blog-content/<id>")]
+async fn blog_contents(db: Connection<Db>, id: i32) -> Result<Json<Vec<Content>>> {
+    let resuilts = Content::get_all_from_blog(db, id).await?;
+    Ok(Json(resuilts))
+}
+
 #[get("/api/users")]
 async fn users(db: Connection<Db>) -> Result<Json<Vec<User>>> {
     let results = User::get_all_users(db).await?;
@@ -118,7 +131,9 @@ async fn rocket() -> _ {
             users,
             create_user,
             shop_items,
-            create_shop_item
+            create_shop_item,
+            blogs,
+            blog_contents
         ],
     )
 }
