@@ -95,14 +95,14 @@ impl BlogItem {
 }
 
 impl Content {
-    pub async fn add(&self, mut db: Connection<Db>) -> Result<Content, sqlx::Error> {
+    pub async fn add(&self, db: &mut Connection<Db>) -> Result<Content, sqlx::Error> {
         let result = sqlx::query!(
             "INSERT INTO content (blog_id, ctype, content) VALUES ($1, $2, $3) RETURNING id",
             &self.blog_id,
             &self.ctype as &ContentType,
             &self.content,
         )
-        .fetch_one(&mut **db)
+        .fetch_one(&mut ***db)
         .await;
 
         match result {
