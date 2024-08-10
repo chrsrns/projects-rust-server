@@ -50,11 +50,16 @@ impl BlogItem {
             Ok(result) => {
                 println!("Successfully added new  {}", &self.blog_title);
                 let id_returned = result.first().expect("returning result").id;
+
+                for content in &self.content {
+                    content.add(&mut db).await?;
+                }
+
                 Ok(BlogItem {
                     id: Some(id_returned),
                     blog_title: self.blog_title.clone(),
                     header_img: self.header_img.clone(),
-                    content: Vec::new(),
+                    content: self.content.clone(),
                 })
             }
             Err(error) => {
