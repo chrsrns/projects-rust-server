@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use crate::Db;
 
 #[derive(Serialize, Deserialize, Clone, sqlx::Type)]
+#[serde(rename_all = "lowercase")]
 #[sqlx(type_name = "content_type", rename_all = "lowercase")]
 pub enum ContentType {
     BigHeader,
