@@ -109,6 +109,33 @@ async fn blogs(db: Connection<Db>) -> Result<Json<Vec<BlogItem>>> {
     Ok(Json(results))
 }
 
+#[post("/api/blog", data = "<blog_item>")]
+async fn create_blog(
+    db: Connection<Db>,
+    mut blog_item: Json<BlogItem>,
+) -> Result<Created<Json<BlogItem>>> {
+    // NOTE: sqlx#2543, sqlx#1648 mean we can't use the pithier `fetch_one()`.
+    let blog_item_deser = BlogItem {
+        id: None,
+        blog_title: blog_item.blog_title.clone(),
+        header_img: blog_item.header_img.clone(),
+        content: blog_item.content.clone(),
+    };
+    let result = blog_item_deser.add(db).await?;
+
+    match result.id {
+        Some(resulted_id) => {
+            blog_item.id = Some(resulted_id);
+            Ok(Created::new("/").body(blog_item))
+        }
+
+        None => {
+            // TODO: Improve error handling
+            panic!("This shouldn't have happened, but it did");
+        }
+    }
+}
+
 #[get("/api/blog-content/<id>")]
 async fn blog_contents(db: Connection<Db>, id: i32) -> Result<Json<Vec<Content>>> {
     let resuilts = Content::get_all_from_blog(db, id).await?;
@@ -133,7 +160,8 @@ async fn rocket() -> _ {
             shop_items,
             create_shop_item,
             blogs,
-            blog_contents
+            blog_contents,
+            create_blog
         ],
     )
 }
