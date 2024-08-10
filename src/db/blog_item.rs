@@ -25,7 +25,7 @@ pub struct BlogItem {
     pub content: Vec<Content>,
 }
 
-#[derive(Serialize, Deserialize, sqlx::FromRow)]
+#[derive(Serialize, Deserialize, Clone, sqlx::FromRow)]
 #[sqlx(type_name = "content")]
 pub struct Content {
     #[serde(skip_deserializing, skip_serializing_if = "Option::is_none")]
