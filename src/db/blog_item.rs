@@ -2,6 +2,7 @@ use either::*;
 use futures::stream::TryStreamExt;
 use rocket_db_pools::Connection;
 use serde::{Deserialize, Serialize};
+use sqlx::{Acquire, Postgres, Transaction};
 
 use crate::Db;
 
@@ -38,12 +39,13 @@ pub struct Content {
 
 impl BlogItem {
     pub async fn add(&self, mut db: Connection<Db>) -> Result<BlogItem, sqlx::Error> {
+        let mut tx = (*db).begin().await?;
         let result = sqlx::query!(
             "INSERT INTO blog_item (blog_title, header_img) VALUES ($1, $2) RETURNING id",
             &self.blog_title,
             &self.header_img,
         )
-        .fetch(&mut **db)
+        .fetch(&mut *tx)
         .try_collect::<Vec<_>>()
         .await;
 
@@ -61,7 +63,7 @@ impl BlogItem {
                         ctype: content.ctype.clone(),
                         content: content.content.clone(),
                     };
-                    let result = content_copy.add(&mut db).await;
+                    let result = content_copy.add_tx(&mut tx).await;
 
                     match result {
                         Ok(resulting_content) => {
@@ -78,6 +80,8 @@ impl BlogItem {
                         },
                     };
                 }
+
+                tx.commit().await?;
 
                 for content_item in &pushed_content {
                     println!("Inserted content {}", content_item.blog_id.unwrap_or(-1));
@@ -160,6 +164,43 @@ impl Content {
             None => Err(Right(())),
         }
     }
+
+    pub async fn add_tx<'a>(
+        &self,
+        db: &mut Transaction<'a, Postgres>,
+    ) -> Result<Content, Either<sqlx::Error, ()>> {
+        match &self.blog_id {
+            Some(blog_id) => {
+                let result = sqlx::query!(
+                    "INSERT INTO content (blog_id, ctype, content) VALUES ($1, $2, $3) RETURNING id",
+                    blog_id,
+                    &self.ctype as &ContentType,
+                    &self.content,
+                )
+                    .fetch_one(&mut **db)
+                .await;
+
+                match result {
+                    Ok(record) => {
+                        println!("Successfully added new content");
+                        let id_returned = record.id;
+                        Ok(Content {
+                            id: Some(id_returned),
+                            blog_id: self.blog_id,
+                            ctype: self.ctype.clone(),
+                            content: self.content.clone(),
+                        })
+                    }
+                    Err(error) => {
+                        println!("Error when creating new content");
+                        Err(Left(error))
+                    }
+                }
+            }
+            None => Err(Right(())),
+        }
+    }
+
     pub async fn get_all_from_blog(
         mut db: Connection<Db>,
         blog_id: i32,
