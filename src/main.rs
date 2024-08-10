@@ -112,7 +112,7 @@ async fn blogs(db: Connection<Db>) -> Result<Json<Vec<BlogItem>>> {
 #[post("/api/blog", data = "<blog_item>")]
 async fn create_blog(
     db: Connection<Db>,
-    mut blog_item: Json<BlogItem>,
+    blog_item: Json<BlogItem>,
 ) -> Result<Created<Json<BlogItem>>> {
     // NOTE: sqlx#2543, sqlx#1648 mean we can't use the pithier `fetch_one()`.
     let blog_item_deser = BlogItem {
@@ -123,17 +123,20 @@ async fn create_blog(
     };
     let result = blog_item_deser.add(db).await?;
 
-    match result.id {
-        Some(resulted_id) => {
-            blog_item.id = Some(resulted_id);
-            Ok(Created::new("/").body(blog_item))
-        }
+    Ok(Created::new("/").body(Json(result)))
 
-        None => {
-            // TODO: Improve error handling
-            panic!("This shouldn't have happened, but it did");
-        }
-    }
+    // match result.id {
+    //     Some(resulted_id) => {
+    //         result
+    //         blog_item.id = Some(resulted_id);
+    //         Ok(Created::new("/").body(blog_item))
+    //     }
+    //
+    //     None => {
+    //         // TODO: Improve error handling
+    //         panic!("This shouldn't have happened, but it did");
+    //     }
+    // }
 }
 
 #[get("/api/blog-content/<id>")]
