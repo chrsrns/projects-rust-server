@@ -101,31 +101,36 @@ impl BlogItem {
 }
 
 impl Content {
-    pub async fn add(&self, db: &mut Connection<Db>) -> Result<Content, sqlx::Error> {
-        let result = sqlx::query!(
-            "INSERT INTO content (blog_id, ctype, content) VALUES ($1, $2, $3) RETURNING id",
-            &self.blog_id,
-            &self.ctype as &ContentType,
-            &self.content,
-        )
-        .fetch_one(&mut ***db)
-        .await;
+    pub async fn add(&self, db: &mut Connection<Db>) -> Result<Content, Either<sqlx::Error, ()>> {
+        match &self.blog_id {
+            Some(blog_id) => {
+                let result = sqlx::query!(
+                    "INSERT INTO content (blog_id, ctype, content) VALUES ($1, $2, $3) RETURNING id",
+                    blog_id,
+                    &self.ctype as &ContentType,
+                    &self.content,
+                )
+                    .fetch_one(&mut ***db)
+                .await;
 
-        match result {
-            Ok(record) => {
-                println!("Successfully added new content");
-                let id_returned = record.id;
-                Ok(Content {
-                    id: Some(id_returned),
-                    blog_id: self.blog_id,
-                    ctype: self.ctype.clone(),
-                    content: self.content.clone(),
-                })
+                match result {
+                    Ok(record) => {
+                        println!("Successfully added new content");
+                        let id_returned = record.id;
+                        Ok(Content {
+                            id: Some(id_returned),
+                            blog_id: self.blog_id,
+                            ctype: self.ctype.clone(),
+                            content: self.content.clone(),
+                        })
+                    }
+                    Err(error) => {
+                        println!("Error when creating new content");
+                        Err(Left(error))
+                    }
+                }
             }
-            Err(error) => {
-                println!("Error when creating new content");
-                Err(error)
-            }
+            None => Err(Right(())),
         }
     }
     pub async fn get_all_from_blog(
