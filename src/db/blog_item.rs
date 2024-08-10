@@ -31,7 +31,7 @@ pub struct BlogItem {
 pub struct Content {
     #[serde(skip_deserializing, skip_serializing_if = "Option::is_none")]
     pub id: Option<i32>,
-    pub blog_id: i32,
+    pub blog_id: Option<i32>,
     pub ctype: ContentType,
     pub content: String,
 }
