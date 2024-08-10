@@ -47,20 +47,47 @@ impl BlogItem {
         .try_collect::<Vec<_>>()
         .await;
 
+        let mut pushed_content = Vec::new();
+
         match result {
             Ok(result) => {
                 println!("Successfully added new  {}", &self.blog_title);
                 let id_returned = result.first().expect("returning result").id;
 
                 for content in &self.content {
-                    content.add(&mut db).await?;
+                    let content_copy = Content {
+                        id: None,
+                        blog_id: Some(id_returned),
+                        ctype: content.ctype.clone(),
+                        content: content.content.clone(),
+                    };
+                    let result = content_copy.add(&mut db).await;
+
+                    match result {
+                        Ok(resulting_content) => {
+                            pushed_content.push(resulting_content);
+                            continue;
+                        }
+                        Err(error) => match error {
+                            Left(sql_error) => return Err(sql_error),
+                            Right(_) => {
+                                return Err(sqlx::Error::TypeNotFound {
+                                    type_name: String::from("blog_id"),
+                                })
+                            }
+                        },
+                    };
+                }
+
+                for content_item in &pushed_content {
+                    println!("Inserted content {}", content_item.blog_id.unwrap_or(-1));
                 }
 
                 Ok(BlogItem {
                     id: Some(id_returned),
                     blog_title: self.blog_title.clone(),
                     header_img: self.header_img.clone(),
-                    content: self.content.clone(),
+                    content: pushed_content,
                 })
             }
             Err(error) => {
