@@ -3,7 +3,7 @@ CREATE TYPE content_type AS ENUM ('bigheader', 'header', 'smallheader', 'body');
 CREATE TABLE IF NOT EXISTS blog_item (
     id SERIAL PRIMARY KEY,
     blog_title VARCHAR UNIQUE NOT NULL,
-    header_img VARCHAR UNIQUE NOT NULL
+    header_img VARCHAR NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS content (
