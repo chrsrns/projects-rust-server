@@ -48,7 +48,6 @@ async fn files() -> Option<NamedFile> {
 
 #[post("/api/user", data = "<user>")]
 async fn create_user(db: Connection<Db>, mut user: Json<User>) -> Result<Created<Json<User>>> {
-    // NOTE: sqlx#2543, sqlx#1648 mean we can't use the pithier `fetch_one()`.
     let user_deser = User {
         id: None,
         username: user.username.clone(),
@@ -81,7 +80,6 @@ async fn create_shop_item(
     db: Connection<Db>,
     mut shop_item: Json<ShopItem>,
 ) -> Result<Created<Json<ShopItem>>> {
-    // NOTE: sqlx#2543, sqlx#1648 mean we can't use the pithier `fetch_one()`.
     let shop_item_deser = ShopItem {
         id: None,
         iname: shop_item.iname.clone(),
@@ -114,7 +112,6 @@ async fn create_blog(
     db: Connection<Db>,
     blog_item: Json<BlogItem>,
 ) -> Result<Created<Json<BlogItem>>> {
-    // NOTE: sqlx#2543, sqlx#1648 mean we can't use the pithier `fetch_one()`.
     let blog_item_deser = BlogItem {
         id: None,
         blog_title: blog_item.blog_title.clone(),
@@ -124,19 +121,6 @@ async fn create_blog(
     let result = blog_item_deser.add(db).await?;
 
     Ok(Created::new("/").body(Json(result)))
-
-    // match result.id {
-    //     Some(resulted_id) => {
-    //         result
-    //         blog_item.id = Some(resulted_id);
-    //         Ok(Created::new("/").body(blog_item))
-    //     }
-    //
-    //     None => {
-    //         // TODO: Improve error handling
-    //         panic!("This shouldn't have happened, but it did");
-    //     }
-    // }
 }
 
 #[get("/api/blog-content/<id>")]
