@@ -2,13 +2,14 @@
 extern crate rocket;
 
 use db::blog_item::{BlogItem, Content};
-use db::shop_item::ShopItem;
+use db::shop_item::{ShopItem, ShopItemDesc};
 use db::user::User;
 use rocket::response::status::Created;
 use rocket::serde::json::Json;
 use rocket::{fairing, Build};
 use rocket::{fs::NamedFile, Rocket};
 use rocket_db_pools::{Connection, Database};
+use sqlx::Either::{Left, Right};
 use std::path::{Path, PathBuf};
 
 mod db;
@@ -101,6 +102,41 @@ async fn create_shop_item(
     }
 }
 
+#[get("/api/shopitemdescs/<id>")]
+async fn shop_item_descs(db: Connection<Db>, id: i32) -> Result<Json<Vec<ShopItemDesc>>> {
+    Ok(Json(ShopItemDesc::get_all_from_shop_item(db, id).await?))
+}
+
+#[post("/api/shopitemdesc", data = "<shop_item_desc>")]
+async fn create_shop_item_desc(
+    db: Connection<Db>,
+    shop_item_desc: Json<ShopItemDesc>,
+) -> Result<Created<Json<ShopItemDesc>>> {
+    let shop_item_desc_deser = ShopItemDesc {
+        id: None,
+        shop_item_id: shop_item_desc.shop_item_id,
+        content: shop_item_desc.content.clone(),
+    };
+    let result = match shop_item_desc_deser.add(db).await {
+        Ok(query_result) => query_result,
+        Err(error) => match error {
+            Left(sql_error) => {
+                return Err(rocket::response::Debug(sql_error));
+            }
+            Right(_) => {
+                return Err(rocket::response::Debug(sqlx::Error::TypeNotFound {
+                    type_name: String::from("shop_item_id"),
+                }));
+            }
+        },
+    };
+
+    match result.id {
+        Some(_) => Ok(Created::new("/").body(Json(result))),
+        None => Err(rocket::response::Debug(sqlx::Error::RowNotFound)),
+    }
+}
+
 #[get("/api/blogs")]
 async fn blogs(db: Connection<Db>) -> Result<Json<Vec<BlogItem>>> {
     let results = BlogItem::get_all(db).await?;
@@ -148,7 +184,9 @@ async fn rocket() -> _ {
             create_shop_item,
             blogs,
             blog_contents,
-            create_blog
+            create_blog,
+            shop_item_descs,
+            create_shop_item_desc
         ],
     )
 }
