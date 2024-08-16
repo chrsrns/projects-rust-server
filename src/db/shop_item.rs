@@ -24,6 +24,14 @@ pub struct ShopImage {
     pub img_link: String,
 }
 
+#[derive(Serialize, Deserialize, sqlx::FromRow)]
+#[sqlx(type_name = "shop_item_desc")]
+pub struct ShopItemDesc {
+    pub id: Option<i32>,
+    pub shop_item_id: Option<i32>,
+    pub content: String,
+}
+
 impl ShopItem {
     pub async fn add(&self, mut db: Connection<Db>) -> Result<ShopItem, sqlx::Error> {
         let result = sqlx::query!(
@@ -114,6 +122,48 @@ impl ShopImage {
         sqlx::query_as!(
             ShopImage,
             "SELECT id, shop_item_id, tooltip, img_link FROM shop_image WHERE shop_item_id=$1",
+            id
+        )
+        .fetch_all(&mut **db)
+        .await
+    }
+}
+
+impl ShopItemDesc {
+    pub async fn add(
+        &self,
+        mut db: Connection<Db>,
+    ) -> Result<ShopItemDesc, Either<sqlx::Error, ()>> {
+        match &self.shop_item_id {
+            Some(shop_item_id) => {
+                // TODO: Copy this implementation of query_as to the other insert functions
+                let result = sqlx::query_as!(ShopItemDesc,
+                    "INSERT INTO shop_item_desc (shop_item_id, content) VALUES ($1, $2) RETURNING id, shop_item_id, content"
+                    , shop_item_id, &self.content
+                ).fetch_one(&mut **db).await;
+
+                match result {
+                    Ok(resulting_shop_image) => {
+                        println!("Successfully added new shop item desc");
+                        Ok(resulting_shop_image)
+                    }
+                    Err(error) => {
+                        println!("Error when creating new shop item");
+                        Err(Either::Left(error))
+                    }
+                }
+            }
+            None => Err(Either::Right(())),
+        }
+    }
+
+    pub async fn get_all_from_shop_item(
+        mut db: Connection<Db>,
+        id: i32,
+    ) -> Result<Vec<ShopItemDesc>, sqlx::Error> {
+        sqlx::query_as!(
+            ShopItemDesc,
+            "SELECT id, shop_item_id, content FROM shop_item_desc WHERE shop_item_id=$1",
             id
         )
         .fetch_all(&mut **db)
