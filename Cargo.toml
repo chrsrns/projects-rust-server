@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 rocket = { version = "0.5.1", features = ["json"] }
+rocket_cors = "0.6.0"
 # Locked to 0.7 due to errors to trait implementation
 sqlx = { version = "0.7", features = ["runtime-tokio", "postgres", "macros"] }
 serde = "1.0.204"

@@ -4,10 +4,12 @@ extern crate rocket;
 use db::blog_item::{BlogItem, Content};
 use db::shop_item::{ShopItem, ShopItemDesc};
 use db::user::User;
+use rocket::http::Method;
 use rocket::response::status::Created;
 use rocket::serde::json::Json;
 use rocket::{fairing, Build};
 use rocket::{fs::NamedFile, Rocket};
+use rocket_cors::{AllowedOrigins, CorsOptions};
 use rocket_db_pools::{Connection, Database};
 use sqlx::Either::{Left, Right};
 use std::path::{Path, PathBuf};
@@ -173,20 +175,32 @@ async fn users(db: Connection<Db>) -> Result<Json<Vec<User>>> {
 
 #[launch]
 async fn rocket() -> _ {
-    rocket::build().attach(Db::init()).mount(
-        "/",
-        routes![
-            files,
-            shop_solidjs,
-            users,
-            create_user,
-            shop_items,
-            create_shop_item,
-            blogs,
-            blog_contents,
-            create_blog,
-            shop_item_descs,
-            create_shop_item_desc
-        ],
-    )
+    let cors = CorsOptions::default()
+        .allowed_origins(AllowedOrigins::all())
+        .allowed_methods(
+            vec![Method::Get, Method::Post, Method::Patch]
+                .into_iter()
+                .map(From::from)
+                .collect(),
+        )
+        .allow_credentials(true);
+    rocket::build()
+        .attach(Db::init())
+        .mount(
+            "/",
+            routes![
+                files,
+                shop_solidjs,
+                users,
+                create_user,
+                shop_items,
+                create_shop_item,
+                blogs,
+                blog_contents,
+                create_blog,
+                shop_item_descs,
+                create_shop_item_desc
+            ],
+        )
+        .attach(cors.to_cors().unwrap())
 }
