@@ -4,13 +4,15 @@ extern crate rocket;
 use db::blog_item::{BlogItem, Content};
 use db::shop_item::{ShopItem, ShopItemDesc};
 use db::user::User;
-use rocket::http::Method;
+use rocket::http::{Method, Status};
 use rocket::response::status::Created;
 use rocket::serde::json::Json;
 use rocket::{fairing, Build};
 use rocket::{fs::NamedFile, Rocket};
 use rocket_cors::{AllowedOrigins, CorsOptions};
 use rocket_db_pools::{Connection, Database};
+use serde::{Deserialize, Serialize};
+use sqlx::Acquire;
 use sqlx::Either::{Left, Right};
 use std::path::{Path, PathBuf};
 
@@ -139,6 +141,36 @@ async fn create_shop_item_desc(
     }
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct ShopItemDescMany {
+    pub id: Option<i32>,
+    pub shop_item_id: Option<i32>,
+    pub contents: Vec<String>,
+}
+#[post(
+    "/api/shopitemdesc/many",
+    data = "<shop_item_desc_many>",
+    format = "json"
+)]
+async fn create_shop_item_desc_many(
+    mut db: Connection<Db>,
+    shop_item_desc_many: Json<ShopItemDescMany>,
+) -> Result<Status> {
+    let mut tx = (*db).begin().await?;
+    for content in &shop_item_desc_many.contents {
+        sqlx::query_as!(
+            ShopItemDesc,
+            "INSERT INTO shop_item_desc (shop_item_id, content) VALUES ($1, $2)",
+            shop_item_desc_many.shop_item_id,
+            content
+        )
+        .execute(&mut *tx)
+        .await?;
+    }
+    tx.commit().await?;
+    Ok(Status::Ok)
+}
+
 #[get("/api/blogs")]
 async fn blogs(db: Connection<Db>) -> Result<Json<Vec<BlogItem>>> {
     let results = BlogItem::get_all(db).await?;
@@ -199,7 +231,8 @@ async fn rocket() -> _ {
                 blog_contents,
                 create_blog,
                 shop_item_descs,
-                create_shop_item_desc
+                create_shop_item_desc,
+                create_shop_item_desc_many
             ],
         )
         .attach(cors.to_cors().unwrap())
