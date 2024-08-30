@@ -244,35 +244,42 @@ async fn users(db: Connection<Db>) -> Result<Json<Vec<User>>> {
 
 #[launch]
 async fn rocket() -> _ {
-    let cors = CorsOptions::default()
-        .allowed_origins(AllowedOrigins::all())
-        .allowed_methods(
-            vec![Method::Get, Method::Post, Method::Patch]
-                .into_iter()
-                .map(From::from)
-                .collect(),
-        )
-        .allow_credentials(true);
-    rocket::build()
-        .attach(Db::init())
-        .mount(
-            "/",
-            routes![
-                files,
-                shop_solidjs,
-                users,
-                create_user,
-                shop_items,
-                create_shop_item,
-                blogs,
-                blog_contents,
-                create_blog,
-                shop_item_descs,
-                create_shop_item_desc,
-                create_shop_item_desc_many,
-                shop_item_images,
-                create_shop_item_image
-            ],
-        )
-        .attach(cors.to_cors().unwrap())
+    let compile_env = std::env::var("COMPILE_ENV").unwrap_or("prod".to_string());
+    let mut rocket_instance = rocket::build().attach(Db::init()).mount(
+        "/",
+        routes![
+            files,
+            shop_solidjs,
+            users,
+            create_user,
+            shop_items,
+            create_shop_item,
+            blogs,
+            blog_contents,
+            create_blog,
+            shop_item_descs,
+            create_shop_item_desc,
+            create_shop_item_desc_many,
+            shop_item_images,
+            create_shop_item_image
+        ],
+    );
+
+    if compile_env == r#"prod"# {
+        println!("Rocket is in prod mode. CORS is in default state.")
+    } else {
+        let cors = CorsOptions::default()
+            .allowed_origins(AllowedOrigins::all())
+            .allowed_methods(
+                vec![Method::Get, Method::Post, Method::Patch]
+                    .into_iter()
+                    .map(From::from)
+                    .collect(),
+            )
+            .allow_credentials(true);
+        rocket_instance = rocket_instance.attach(cors.to_cors().unwrap());
+        println!("Rocket is in Dev mode. CORS will allow prod-unsafe features.")
+    }
+
+    rocket_instance
 }
