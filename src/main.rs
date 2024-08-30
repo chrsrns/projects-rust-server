@@ -245,7 +245,7 @@ async fn users(db: Connection<Db>) -> Result<Json<Vec<User>>> {
 #[launch]
 async fn rocket() -> _ {
     let compile_env = std::env::var("COMPILE_ENV").unwrap_or("prod".to_string());
-    let mut rocket_instance = rocket::build().attach(Db::init()).mount(
+    let rocket_instance = rocket::build().attach(Db::init()).mount(
         "/",
         routes![
             files,
@@ -266,8 +266,10 @@ async fn rocket() -> _ {
     );
 
     if compile_env == r#"prod"# {
-        println!("Rocket is in prod mode. CORS is in default state.")
+        println!("Rocket is in prod mode. CORS is in default state.");
+        rocket_instance
     } else {
+        println!("Rocket is in Dev mode. CORS will allow prod-unsafe features.");
         let cors = CorsOptions::default()
             .allowed_origins(AllowedOrigins::all())
             .allowed_methods(
@@ -277,9 +279,6 @@ async fn rocket() -> _ {
                     .collect(),
             )
             .allow_credentials(true);
-        rocket_instance = rocket_instance.attach(cors.to_cors().unwrap());
-        println!("Rocket is in Dev mode. CORS will allow prod-unsafe features.")
+        rocket_instance.attach(cors.to_cors().unwrap())
     }
-
-    rocket_instance
 }
