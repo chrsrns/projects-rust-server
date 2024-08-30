@@ -2,7 +2,7 @@
 extern crate rocket;
 
 use db::blog_item::{BlogItem, Content};
-use db::shop_item::{ShopItem, ShopItemDesc};
+use db::shop_item::{ShopImage, ShopItem, ShopItemDesc};
 use db::user::User;
 use rocket::http::{Method, Status};
 use rocket::response::status::Created;
@@ -106,6 +106,42 @@ async fn create_shop_item(
     }
 }
 
+#[get("/api/shopitemimages/<id>")]
+async fn shop_item_images(db: Connection<Db>, id: i32) -> Result<Json<Vec<ShopImage>>> {
+    Ok(Json(ShopImage::get_all_from_shop_item(db, id).await?))
+}
+
+#[post("/api/shopitemimage", data = "<shop_item_image>")]
+async fn create_shop_item_image(
+    db: Connection<Db>,
+    shop_item_image: Json<ShopImage>,
+) -> Result<Created<Json<ShopImage>>> {
+    let shop_item_desc_deser = ShopImage {
+        id: None,
+        shop_item_id: shop_item_image.shop_item_id,
+        tooltip: shop_item_image.tooltip.clone(),
+        img_link: shop_item_image.img_link.clone(),
+    };
+    let result = match shop_item_desc_deser.add(db).await {
+        Ok(query_result) => query_result,
+        Err(error) => match error {
+            Left(sql_error) => {
+                return Err(rocket::response::Debug(sql_error));
+            }
+            Right(_) => {
+                return Err(rocket::response::Debug(sqlx::Error::TypeNotFound {
+                    type_name: String::from("shop_item_id"),
+                }));
+            }
+        },
+    };
+
+    match result.id {
+        Some(_) => Ok(Created::new("/").body(Json(result))),
+        None => Err(rocket::response::Debug(sqlx::Error::RowNotFound)),
+    }
+}
+
 #[get("/api/shopitemdescs/<id>")]
 async fn shop_item_descs(db: Connection<Db>, id: i32) -> Result<Json<Vec<ShopItemDesc>>> {
     Ok(Json(ShopItemDesc::get_all_from_shop_item(db, id).await?))
@@ -147,6 +183,7 @@ pub struct ShopItemDescMany {
     pub shop_item_id: Option<i32>,
     pub contents: Vec<String>,
 }
+// TODO: Copy over the format parameter to other routes
 #[post(
     "/api/shopitemdesc/many",
     data = "<shop_item_desc_many>",
@@ -232,7 +269,9 @@ async fn rocket() -> _ {
                 create_blog,
                 shop_item_descs,
                 create_shop_item_desc,
-                create_shop_item_desc_many
+                create_shop_item_desc_many,
+                shop_item_images,
+                create_shop_item_image
             ],
         )
         .attach(cors.to_cors().unwrap())
