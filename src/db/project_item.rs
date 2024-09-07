@@ -35,3 +35,12 @@ pub struct ProjectToTechTag {
     pub project_id: i32,
     pub tag_id: i32,
 }
+
+#[derive(Serialize, Deserialize, Clone, sqlx::Type)]
+#[serde(rename_all = "lowercase")]
+#[sqlx(type_name = "tag_category", rename_all = "lowercase")]
+pub enum TagCategory {
+    Language,
+    Framework,
+    Database,
+}

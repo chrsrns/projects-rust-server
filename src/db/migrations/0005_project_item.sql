@@ -29,3 +29,5 @@ CREATE TABLE IF NOT EXISTS project_tech_tag (
         tag_id
     ) REFERENCES tag (id)
 );
+
+CREATE TYPE tag_category AS ENUM ('language', 'framework', 'database');
