@@ -1,7 +1,7 @@
 CREATE TABLE IF NOT EXISTS project_item (
     id SERIAL PRIMARY KEY,
     title VARCHAR UNIQUE NOT NULL,
-    thubnail_img_link VARCHAR NOT NULL
+    thumbnail_img_link VARCHAR NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS project_desc_item (
