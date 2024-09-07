@@ -30,4 +30,13 @@ CREATE TABLE IF NOT EXISTS project_tech_tag (
     ) REFERENCES tag (id)
 );
 
+CREATE TABLE IF NOT EXISTS tag_category_join (
+    id SERIAL PRIMARY KEY,
+    tag_id INT NOT NULL,
+    tag_category TAG_CATEGORY NOT NULL,
+    CONSTRAINT fk_tag FOREIGN KEY (
+        tag_id
+    ) REFERENCES tag (id)
+);
+
 CREATE TYPE tag_category AS ENUM ('language', 'framework', 'database');
