@@ -20,10 +20,20 @@ pub struct ProjectToTechTag {
 }
 
 impl Tag {
-    pub async fn add(&self, mut db: Connection<Db>) -> Result<Tag, sqlx::Error> {
+    pub async fn add_or_get(&self, mut db: Connection<Db>) -> Result<Tag, sqlx::Error> {
         let result = sqlx::query_as!(
             Tag,
-            "INSERT INTO tag (text) VALUES ($1) RETURNING id, text",
+            "
+                WITH newrow AS (
+                    INSERT INTO tag (text) 
+                    SELECT $1::VARCHAR
+                    WHERE NOT EXISTS (SELECT * FROM tag WHERE text = $1)
+                    RETURNING id, text
+                )
+                    SELECT id, COALESCE(text, '') AS \"text!\" FROM newrow
+                    UNION
+                    SELECT id, text FROM tag WHERE text = $1
+            ",
             &self.text,
         )
         .fetch_one(&mut **db)
