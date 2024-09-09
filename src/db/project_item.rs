@@ -97,8 +97,8 @@ impl DescItem {
     pub async fn add(&self, db: &mut Connection<Db>) -> Result<DescItem, Either<sqlx::Error, ()>> {
         match &self.project_id {
             Some(project_id) => {
-                let result = sqlx::query!(
-                    "INSERT INTO project_desc_item (project_id, content) VALUES ($1, $2) RETURNING id",
+                let result = sqlx::query_as!(DescItem,
+                    "INSERT INTO project_desc_item (project_id, content) VALUES ($1, $2) RETURNING id, project_id, content",
                     project_id,
                     &self.content,
                 )
@@ -108,12 +108,7 @@ impl DescItem {
                 match result {
                     Ok(record) => {
                         println!("Successfully added new project description");
-                        let id_returned = record.id;
-                        Ok(DescItem {
-                            id: Some(id_returned),
-                            project_id: self.project_id,
-                            content: self.content.clone(),
-                        })
+                        Ok(record)
                     }
                     Err(error) => {
                         println!("Error when creating new project description");
@@ -131,8 +126,8 @@ impl DescItem {
     ) -> Result<DescItem, Either<sqlx::Error, ()>> {
         match &self.project_id {
             Some(project_id) => {
-                let result = sqlx::query!(
-                    "INSERT INTO project_desc_item (project_id, content) VALUES ($1, $2) RETURNING id",
+                let result = sqlx::query_as!(DescItem,
+                    "INSERT INTO project_desc_item (project_id, content) VALUES ($1, $2) RETURNING id, project_id, content",
                     project_id,
                     &self.content,
                 )
@@ -142,12 +137,7 @@ impl DescItem {
                 match result {
                     Ok(record) => {
                         println!("Successfully added new content");
-                        let id_returned = record.id;
-                        Ok(DescItem {
-                            id: Some(id_returned),
-                            project_id: self.project_id,
-                            content: self.content.clone(),
-                        })
+                        Ok(record)
                     }
                     Err(error) => {
                         println!("Error when creating new content");
