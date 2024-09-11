@@ -13,6 +13,7 @@ pub struct ProjectItem {
     pub id: Option<i32>,
     pub title: String,
     pub thumbnail_img_link: String,
+    #[sqlx(skip)]
     pub desc: Vec<DescItem>,
 }
 
