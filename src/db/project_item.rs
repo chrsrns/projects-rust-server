@@ -93,6 +93,29 @@ impl ProjectItem {
             }
         }
     }
+
+    pub async fn add_tag(
+        &self,
+        mut db: Connection<Db>,
+        tags: Vec<&Tag>,
+    ) -> Result<(), sqlx::Error> {
+        let mut tx = (*db).begin().await?;
+
+        for tag in tags {
+            let result = sqlx::query!(
+                "INSERT INTO project_tech_tag (project_id, tag_id) VALUES ($1, $2) RETURNING id",
+                &self.id.unwrap_or(-1),
+                tag.id
+            )
+            .fetch(&mut *tx)
+            .try_collect::<Vec<_>>()
+            .await;
+
+            result?;
+        }
+        Ok(())
+    }
+
     pub async fn get_projects_by_tab(
         mut db: Connection<Db>,
         tag: &Tag,

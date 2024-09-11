@@ -2,7 +2,10 @@ use crate::Db;
 use rocket_db_pools::Connection;
 use serde::{Deserialize, Serialize};
 
-use super::project_item::ProjectItem;
+use super::{
+    project_item::ProjectItem,
+    tag_category_join::{TagCategory, TagCategoryJoin},
+};
 
 #[derive(Serialize, Deserialize, Clone, sqlx::FromRow)]
 #[sqlx(type_name = "tag")]
@@ -52,6 +55,22 @@ impl Tag {
                 Err(error)
             }
         }
+    }
+
+    pub async fn add_category(
+        &self,
+        mut db: Connection<Db>,
+        tag_category: &TagCategory,
+    ) -> Result<TagCategoryJoin, sqlx::Error> {
+        sqlx::query_as!(
+            TagCategoryJoin,
+            "
+                    SELECT id, tag_id, category AS \"category: _\"  FROM tag_category_join WHERE tag_id = $1 AND category = $2
+            ",
+            &self.id.unwrap_or(-1), tag_category as &TagCategory
+        )
+        .fetch_one(&mut **db)
+        .await
     }
 
     pub async fn get_all(mut db: Connection<Db>) -> Result<Vec<Tag>, sqlx::Error> {
