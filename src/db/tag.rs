@@ -2,6 +2,8 @@ use crate::Db;
 use rocket_db_pools::Connection;
 use serde::{Deserialize, Serialize};
 
+use super::project_item::ProjectItem;
+
 #[derive(Serialize, Deserialize, Clone, sqlx::FromRow)]
 #[sqlx(type_name = "tag")]
 pub struct Tag {
@@ -50,6 +52,31 @@ impl Tag {
                 Err(error)
             }
         }
+    }
+
+    pub async fn get_all(mut db: Connection<Db>) -> Result<Vec<Tag>, sqlx::Error> {
+        sqlx::query_as("SELECT id, text FROM tag")
+            .fetch_all(&mut **db)
+            .await
+        // TODO: Add custom completion prints
+    }
+
+    pub async fn get_tags_by_project(
+        mut db: Connection<Db>,
+        project_item: &ProjectItem,
+    ) -> Result<Vec<Tag>, sqlx::Error> {
+        sqlx::query_as!(
+            Tag,
+            "
+                SELECT tag.id, tag.text FROM tag 
+                    INNER JOIN project_tech_tag ON tag.id=project_tech_tag.tag_id
+                    WHERE project_tech_tag.project_id = $1
+            ",
+            project_item.id
+        )
+        .fetch_all(&mut **db)
+        .await
+        // TODO: Add custom completion prints
     }
 }
 

@@ -4,6 +4,7 @@ use rocket_db_pools::Connection;
 use serde::{Deserialize, Serialize};
 use sqlx::{Acquire, Postgres, Transaction};
 
+use super::tag::Tag;
 use crate::Db;
 
 #[derive(Serialize, Deserialize, sqlx::FromRow)]
@@ -91,6 +92,22 @@ impl ProjectItem {
                 Err(error)
             }
         }
+    }
+    pub async fn get_projects_by_tab(
+        mut db: Connection<Db>,
+        tag: &Tag,
+    ) -> Result<Vec<ProjectItem>, sqlx::Error> {
+        sqlx::query_as(
+            "
+                SELECT project_item.id, project_item.thumbnail_img_link FROM project_item 
+                    INNER JOIN project_tech_tag ON project_item.id=project_tech_tag.project_id
+                    WHERE project_tech_tag.tag_id = $1
+            ",
+        )
+        .bind(tag.id)
+        .fetch_all(&mut **db)
+        .await
+        // TODO: Add custom completion prints
     }
 }
 
