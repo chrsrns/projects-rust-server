@@ -6,7 +6,7 @@ pub struct TagCategoryJoin {
     #[serde(skip_deserializing, skip_serializing_if = "Option::is_none")]
     pub id: Option<i32>,
     pub tag_id: i32,
-    pub tag_category: TagCategory,
+    pub category: TagCategory,
 }
 
 #[derive(Serialize, Deserialize, Clone, sqlx::Type)]

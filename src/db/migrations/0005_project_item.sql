@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS project_tech_tag (
 CREATE TABLE IF NOT EXISTS tag_category_join (
     id SERIAL PRIMARY KEY,
     tag_id INT NOT NULL,
-    tag_category TAG_CATEGORY NOT NULL,
+    category TAG_CATEGORY NOT NULL,
     CONSTRAINT fk_tag FOREIGN KEY (
         tag_id
     ) REFERENCES tag (id)
