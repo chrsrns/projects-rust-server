@@ -97,6 +97,26 @@ impl Tag {
         .await
         // TODO: Add custom completion prints
     }
+
+    // NOTE: The type casting here is from
+    // https://github.com/launchbadge/sqlx/issues/1004#issuecomment-764964043
+    pub async fn get_tags_by_category(
+        mut db: Connection<Db>,
+        category: TagCategory,
+    ) -> Result<Vec<Tag>, sqlx::Error> {
+        sqlx::query_as!(
+            Tag,
+            "
+                SELECT tag.id, tag.text FROM tag 
+                    INNER JOIN tag_category_join ON tag.id=tag_category_join.tag_id
+                    WHERE tag_category_join.category = $1
+            ",
+            category as _
+        )
+        .fetch_all(&mut **db)
+        .await
+        // TODO: Add custom completion prints
+    }
 }
 
 impl ProjectToTechTag {
