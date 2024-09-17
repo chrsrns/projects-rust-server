@@ -116,6 +116,13 @@ impl ProjectItem {
         Ok(())
     }
 
+    pub async fn get_all(mut db: Connection<Db>) -> Result<Vec<ProjectItem>, sqlx::Error> {
+        sqlx::query_as("SELECT id, title, thumbnail_img_link FROM project_item")
+            .fetch_all(&mut **db)
+            .await
+        // TODO: Add custom completion prints
+    }
+
     pub async fn get_projects_by_tab(
         mut db: Connection<Db>,
         tag: &Tag,
@@ -188,5 +195,19 @@ impl DescItem {
             }
             None => Err(Right(())),
         }
+    }
+
+    pub async fn get_all_from_project(
+        mut db: Connection<Db>,
+        project_id: i32,
+    ) -> Result<Vec<DescItem>, sqlx::Error> {
+        sqlx::query_as!(
+            DescItem,
+            r#"SELECT id, project_id, content FROM project_desc_item WHERE project_id=$1"#,
+            project_id
+        )
+        .fetch_all(&mut **db)
+        .await
+        // TODO: Add custom completion prints
     }
 }
