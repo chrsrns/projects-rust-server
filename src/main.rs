@@ -2,7 +2,7 @@
 extern crate rocket;
 
 use db::blog_item::{BlogItem, Content};
-use db::shop_item::{ShopImage, ShopItem, ShopItemDesc};
+use db::shop_item::{ShopImage, ShopItem, ShopItemDesc, ShopItemDescMany};
 use db::user::User;
 use rocket::http::{Method, Status};
 use rocket::response::status::Created;
@@ -177,12 +177,6 @@ async fn create_shop_item_desc(
     }
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct ShopItemDescMany {
-    pub id: Option<i32>,
-    pub shop_item_id: Option<i32>,
-    pub contents: Vec<String>,
-}
 // TODO: Copy over the format parameter to other routes
 #[post(
     "/api/shopitemdesc/many",

@@ -32,6 +32,14 @@ pub struct ShopItemDesc {
     pub content: String,
 }
 
+// NOTE: Not a database model
+#[derive(Serialize, Deserialize)]
+pub struct ShopItemDescMany {
+    pub id: Option<i32>,
+    pub shop_item_id: Option<i32>,
+    pub contents: Vec<String>,
+}
+
 impl ShopItem {
     pub async fn add(&self, mut db: Connection<Db>) -> Result<ShopItem, sqlx::Error> {
         let result = sqlx::query!(
