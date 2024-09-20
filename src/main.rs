@@ -2,6 +2,7 @@
 extern crate rocket;
 
 use db::blog_item::{BlogItem, Content};
+use db::project_item::{DescItem, ProjectItem};
 use db::shop_item::{ShopImage, ShopItem, ShopItemDesc, ShopItemDescMany};
 use db::user::User;
 use rocket::http::{Method, Status};
@@ -230,6 +231,18 @@ async fn blog_contents(db: Connection<Db>, id: i32) -> Result<Json<Vec<Content>>
     Ok(Json(resuilts))
 }
 
+#[get("/api/projects")]
+async fn projects(db: Connection<Db>) -> Result<Json<Vec<ProjectItem>>> {
+    let results = ProjectItem::get_all(db).await?;
+    Ok(Json(results))
+}
+
+#[get("/api/project_descs/<id>")]
+async fn project_descs(db: Connection<Db>, id: i32) -> Result<Json<Vec<DescItem>>> {
+    let resuilts = DescItem::get_all_from_project(db, id).await?;
+    Ok(Json(resuilts))
+}
+
 #[get("/api/users")]
 async fn users(db: Connection<Db>) -> Result<Json<Vec<User>>> {
     let results = User::get_all_users(db).await?;
@@ -255,7 +268,9 @@ async fn rocket() -> _ {
             create_shop_item_desc,
             create_shop_item_desc_many,
             shop_item_images,
-            create_shop_item_image
+            create_shop_item_image,
+            projects,
+            project_descs
         ],
     );
 
