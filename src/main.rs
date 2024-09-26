@@ -237,10 +237,61 @@ async fn projects(db: Connection<Db>) -> Result<Json<Vec<ProjectItem>>> {
     Ok(Json(results))
 }
 
+#[post("/api/project", data = "<project_item>")]
+async fn create_project_item(
+    db: Connection<Db>,
+    project_item: Json<ProjectItem>,
+) -> Result<Created<Json<ProjectItem>>> {
+    let project_item_deser = ProjectItem {
+        id: None,
+        title: project_item.title.clone(),
+        thumbnail_img_link: project_item.thumbnail_img_link.clone(),
+        desc: project_item.desc.clone(),
+    };
+    let result = project_item_deser.add(db).await?;
+
+    match result.id {
+        Some(_) => Ok(Created::new("/").body(Json(result))),
+        None => {
+            // TODO: Improve error handling
+            panic!("This shouldn't have happened, but it did");
+        }
+    }
+}
+
 #[get("/api/project_descs/<id>")]
 async fn project_descs(db: Connection<Db>, id: i32) -> Result<Json<Vec<DescItem>>> {
     let resuilts = DescItem::get_all_from_project(db, id).await?;
     Ok(Json(resuilts))
+}
+
+#[post("/api/project_desc", data = "<project_desc>")]
+async fn create_project_desc(
+    db: Connection<Db>,
+    project_desc: Json<DescItem>,
+) -> Result<Created<Json<DescItem>>> {
+    let project_desc_deser = DescItem {
+        id: None,
+        project_id: project_desc.project_id,
+        content: project_desc.content.clone(),
+    };
+    let result = match project_desc_deser.add(db).await {
+        Ok(query_result) => query_result,
+        Err(error) => match error {
+            Left(sql_error) => {
+                return Err(rocket::response::Debug(sql_error));
+            }
+            Right(_) => {
+                return Err(rocket::response::Debug(sqlx::Error::TypeNotFound {
+                    type_name: String::from("project_id"),
+                }));
+            }
+        },
+    };
+    match result.id {
+        Some(_) => Ok(Created::new("/").body(Json(result))),
+        None => Err(rocket::response::Debug(sqlx::Error::RowNotFound)),
+    }
 }
 
 #[get("/api/users")]
@@ -270,7 +321,9 @@ async fn rocket() -> _ {
             shop_item_images,
             create_shop_item_image,
             projects,
-            project_descs
+            project_descs,
+            create_project_item,
+            create_project_desc
         ],
     );
 
