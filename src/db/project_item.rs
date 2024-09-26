@@ -149,7 +149,7 @@ impl ProjectItem {
 }
 
 impl DescItem {
-    pub async fn add(&self, db: &mut Connection<Db>) -> Result<DescItem, Either<sqlx::Error, ()>> {
+    pub async fn add(&self, mut db: Connection<Db>) -> Result<DescItem, Either<sqlx::Error, ()>> {
         match &self.project_id {
             Some(project_id) => {
                 let result = sqlx::query_as!(DescItem,
@@ -157,7 +157,7 @@ impl DescItem {
                     project_id,
                     &self.content,
                 )
-                    .fetch_one(&mut ***db)
+                    .fetch_one(&mut **db)
                 .await;
 
                 match result {
