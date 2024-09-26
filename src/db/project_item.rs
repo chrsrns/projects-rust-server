@@ -27,6 +27,13 @@ pub struct DescItem {
     pub content: String,
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct DescItemMany {
+    pub id: Option<i32>,
+    pub project_id: Option<i32>,
+    pub contents: Vec<String>,
+}
+
 impl ProjectItem {
     pub async fn add(&self, mut db: Connection<Db>) -> Result<ProjectItem, sqlx::Error> {
         let mut tx = (*db).begin().await?;
