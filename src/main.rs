@@ -12,7 +12,6 @@ use rocket::{fairing, Build};
 use rocket::{fs::NamedFile, Rocket};
 use rocket_cors::{AllowedOrigins, CorsOptions};
 use rocket_db_pools::{Connection, Database};
-use serde::{Deserialize, Serialize};
 use sqlx::Acquire;
 use sqlx::Either::{Left, Right};
 use std::path::{Path, PathBuf};
