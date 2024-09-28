@@ -51,7 +51,7 @@ async fn files() -> Option<NamedFile> {
         .ok()
 }
 
-#[post("/api/user", data = "<user>")]
+#[post("/api/user", data = "<user>", format = "json")]
 async fn create_user(db: Connection<Db>, mut user: Json<User>) -> Result<Created<Json<User>>> {
     let user_deser = User {
         id: None,
@@ -80,7 +80,7 @@ async fn shop_items(db: Connection<Db>) -> Result<Json<Vec<ShopItem>>> {
     Ok(Json(results))
 }
 
-#[post("/api/shopitem", data = "<shop_item>")]
+#[post("/api/shopitem", data = "<shop_item>", format = "json")]
 async fn create_shop_item(
     db: Connection<Db>,
     mut shop_item: Json<ShopItem>,
@@ -111,7 +111,7 @@ async fn shop_item_images(db: Connection<Db>, id: i32) -> Result<Json<Vec<ShopIm
     Ok(Json(ShopImage::get_all_from_shop_item(db, id).await?))
 }
 
-#[post("/api/shopitemimage", data = "<shop_item_image>")]
+#[post("/api/shopitemimage", data = "<shop_item_image>", format = "json")]
 async fn create_shop_item_image(
     db: Connection<Db>,
     shop_item_image: Json<ShopImage>,
@@ -147,7 +147,7 @@ async fn shop_item_descs(db: Connection<Db>, id: i32) -> Result<Json<Vec<ShopIte
     Ok(Json(ShopItemDesc::get_all_from_shop_item(db, id).await?))
 }
 
-#[post("/api/shopitemdesc", data = "<shop_item_desc>")]
+#[post("/api/shopitemdesc", data = "<shop_item_desc>", format = "json")]
 async fn create_shop_item_desc(
     db: Connection<Db>,
     shop_item_desc: Json<ShopItemDesc>,
@@ -177,7 +177,6 @@ async fn create_shop_item_desc(
     }
 }
 
-// TODO: Copy over the format parameter to other routes
 #[post(
     "/api/shopitemdesc/many",
     data = "<shop_item_desc_many>",
@@ -208,7 +207,7 @@ async fn blogs(db: Connection<Db>) -> Result<Json<Vec<BlogItem>>> {
     Ok(Json(results))
 }
 
-#[post("/api/blog", data = "<blog_item>")]
+#[post("/api/blog", data = "<blog_item>", format = "json")]
 async fn create_blog(
     db: Connection<Db>,
     blog_item: Json<BlogItem>,
@@ -236,7 +235,7 @@ async fn projects(db: Connection<Db>) -> Result<Json<Vec<ProjectItem>>> {
     Ok(Json(results))
 }
 
-#[post("/api/project", data = "<project_item>")]
+#[post("/api/project", data = "<project_item>", format = "json")]
 async fn create_project_item(
     db: Connection<Db>,
     project_item: Json<ProjectItem>,
@@ -264,7 +263,7 @@ async fn project_descs(db: Connection<Db>, id: i32) -> Result<Json<Vec<DescItem>
     Ok(Json(resuilts))
 }
 
-#[post("/api/project_desc", data = "<project_desc>")]
+#[post("/api/project_desc", data = "<project_desc>", format = "json")]
 async fn create_project_desc(
     db: Connection<Db>,
     project_desc: Json<DescItem>,
