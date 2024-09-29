@@ -132,7 +132,7 @@ impl ProjectItem {
 
     pub async fn get_projects_by_tab(
         mut db: Connection<Db>,
-        tag: &Tag,
+        tag_id: i32,
     ) -> Result<Vec<ProjectItem>, sqlx::Error> {
         sqlx::query_as(
             "
@@ -141,7 +141,7 @@ impl ProjectItem {
                     WHERE project_tech_tag.tag_id = $1
             ",
         )
-        .bind(tag.id)
+        .bind(tag_id)
         .fetch_all(&mut **db)
         .await
         // TODO: Add custom completion prints
