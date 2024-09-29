@@ -235,6 +235,12 @@ async fn projects(db: Connection<Db>) -> Result<Json<Vec<ProjectItem>>> {
     Ok(Json(results))
 }
 
+#[get("/api/projects-by-tag/<tag_id>")]
+async fn projects_by_tag(db: Connection<Db>, tag_id: i32) -> Result<Json<Vec<ProjectItem>>> {
+    let results = ProjectItem::get_projects_by_tab(db, tag_id).await?;
+    Ok(Json(results))
+}
+
 #[post("/api/project", data = "<project_item>", format = "json")]
 async fn create_project_item(
     db: Connection<Db>,
@@ -319,6 +325,7 @@ async fn rocket() -> _ {
             shop_item_images,
             create_shop_item_image,
             projects,
+            projects_by_tag,
             project_descs,
             create_project_item,
             create_project_desc
