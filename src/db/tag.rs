@@ -82,7 +82,7 @@ impl Tag {
 
     pub async fn get_tags_by_project(
         mut db: Connection<Db>,
-        project_item: &ProjectItem,
+        project_item_id: &i32,
     ) -> Result<Vec<Tag>, sqlx::Error> {
         sqlx::query_as!(
             Tag,
@@ -91,7 +91,7 @@ impl Tag {
                     INNER JOIN project_tech_tag ON tag.id=project_tech_tag.tag_id
                     WHERE project_tech_tag.project_id = $1
             ",
-            project_item.id
+            project_item_id
         )
         .fetch_all(&mut **db)
         .await
