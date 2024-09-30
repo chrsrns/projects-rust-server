@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use strum_macros::EnumString;
 
 #[derive(Serialize, Deserialize, Clone, sqlx::FromRow)]
 #[sqlx(type_name = "tag_category_join")]
@@ -9,7 +10,7 @@ pub struct TagCategoryJoin {
     pub category: TagCategory,
 }
 
-#[derive(Serialize, Deserialize, Clone, sqlx::Type)]
+#[derive(Serialize, Deserialize, Clone, sqlx::Type, EnumString)]
 #[serde(rename_all = "lowercase")]
 #[sqlx(type_name = "tag_category", rename_all = "lowercase")]
 pub enum TagCategory {
