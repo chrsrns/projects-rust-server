@@ -225,8 +225,8 @@ async fn create_blog(
 
 #[get("/api/blog-content/<id>")]
 async fn blog_contents(db: Connection<Db>, id: i32) -> Result<Json<Vec<Content>>> {
-    let resuilts = Content::get_all_from_blog(db, id).await?;
-    Ok(Json(resuilts))
+    let results = Content::get_all_from_blog(db, id).await?;
+    Ok(Json(results))
 }
 
 #[get("/api/projects")]
