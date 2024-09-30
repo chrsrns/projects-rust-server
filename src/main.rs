@@ -4,6 +4,8 @@ extern crate rocket;
 use db::blog_item::{BlogItem, Content};
 use db::project_item::{DescItem, ProjectItem};
 use db::shop_item::{ShopImage, ShopItem, ShopItemDesc, ShopItemDescMany};
+use db::tag::Tag;
+use db::tag_category_join::TagCategory;
 use db::user::User;
 use rocket::http::{Method, Status};
 use rocket::response::status::Created;
@@ -15,6 +17,7 @@ use rocket_db_pools::{Connection, Database};
 use sqlx::Acquire;
 use sqlx::Either::{Left, Right};
 use std::path::{Path, PathBuf};
+use std::str::FromStr;
 
 mod db;
 
@@ -298,6 +301,40 @@ async fn create_project_desc(
     }
 }
 
+#[get("/api/tags")]
+async fn tags(db: Connection<Db>) -> Result<Json<Vec<Tag>>> {
+    let results = Tag::get_all(db).await?;
+    Ok(Json(results))
+}
+
+#[get("/api/tags-by-category/<category>")]
+async fn tags_by_category(
+    db: Connection<Db>,
+    category: String,
+) -> Result<Json<Vec<Tag>>, rocket::http::Status> {
+    let category = match TagCategory::from_str(category.as_str()) {
+        Ok(result) => result,
+        Err(_error) => return Err(rocket::http::Status::UnprocessableEntity),
+    };
+    let results = match Tag::get_tags_by_category(db, category).await {
+        Ok(result) => result,
+        Err(_error) => return Err(rocket::http::Status::InternalServerError),
+    };
+    Ok(Json(results))
+}
+
+#[get("/api/tags/by-project/<id>")]
+async fn tags_by_project(
+    db: Connection<Db>,
+    id: i32,
+) -> Result<Json<Vec<Tag>>, rocket::http::Status> {
+    let results = match Tag::get_tags_by_project(db, &id).await {
+        Ok(result) => result,
+        Err(_error) => return Err(rocket::http::Status::UnprocessableEntity),
+    };
+    Ok(Json(results))
+}
+
 #[get("/api/users")]
 async fn users(db: Connection<Db>) -> Result<Json<Vec<User>>> {
     let results = User::get_all_users(db).await?;
@@ -328,7 +365,10 @@ async fn rocket() -> _ {
             projects_by_tag,
             project_descs,
             create_project_item,
-            create_project_desc
+            create_project_desc,
+            tags,
+            tags_by_project,
+            tags_by_category
         ],
     );
 
