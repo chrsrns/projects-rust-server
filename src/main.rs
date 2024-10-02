@@ -307,6 +307,16 @@ async fn tags(db: Connection<Db>) -> Result<Json<Vec<Tag>>> {
     Ok(Json(results))
 }
 
+#[post("/api/tag", data = "<tag>", format = "json")]
+async fn create_tag(db: Connection<Db>, tag: Json<Tag>) -> Result<Created<Json<Tag>>> {
+    let tag_deser = Tag {
+        id: None,
+        text: tag.text.clone(),
+    };
+    let result = tag_deser.add_or_get(db).await?;
+    Ok(Created::new("/").body(Json(result)))
+}
+
 #[get("/api/tags-by-category/<category>")]
 async fn tags_by_category(
     db: Connection<Db>,
