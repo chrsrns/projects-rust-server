@@ -377,6 +377,7 @@ async fn rocket() -> _ {
             create_project_item,
             create_project_desc,
             tags,
+            create_tag,
             tags_by_project,
             tags_by_category
         ],
