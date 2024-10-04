@@ -2,10 +2,7 @@ use crate::Db;
 use rocket_db_pools::Connection;
 use serde::{Deserialize, Serialize};
 
-use super::{
-    project_item::ProjectItem,
-    tag_category_join::{TagCategory, TagCategoryJoin},
-};
+use super::tag_category_join::{TagCategory, TagCategoryJoin};
 
 #[derive(Serialize, Deserialize, Clone, sqlx::FromRow)]
 #[sqlx(type_name = "tag")]
