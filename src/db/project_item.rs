@@ -130,7 +130,7 @@ impl ProjectItem {
         // TODO: Add custom completion prints
     }
 
-    pub async fn get_projects_by_tab(
+    pub async fn get_projects_by_tag(
         mut db: Connection<Db>,
         tag_id: i32,
     ) -> Result<Vec<ProjectItem>, sqlx::Error> {

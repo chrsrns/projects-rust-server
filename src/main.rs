@@ -240,7 +240,7 @@ async fn projects(db: Connection<Db>) -> Result<Json<Vec<ProjectItem>>> {
 
 #[get("/api/projects-by-tag/<tag_id>")]
 async fn projects_by_tag(db: Connection<Db>, tag_id: i32) -> Result<Json<Vec<ProjectItem>>> {
-    let results = ProjectItem::get_projects_by_tab(db, tag_id).await?;
+    let results = ProjectItem::get_projects_by_tag(db, tag_id).await?;
     Ok(Json(results))
 }
 
