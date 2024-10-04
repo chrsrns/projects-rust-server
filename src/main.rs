@@ -14,6 +14,7 @@ use rocket::{fairing, Build};
 use rocket::{fs::NamedFile, Rocket};
 use rocket_cors::{AllowedOrigins, CorsOptions};
 use rocket_db_pools::{Connection, Database};
+use serde::{Deserialize, Serialize};
 use sqlx::Acquire;
 use sqlx::Either::{Left, Right};
 use std::path::{Path, PathBuf};
@@ -266,6 +267,23 @@ async fn create_project_item(
     }
 }
 
+#[derive(Serialize, Deserialize)]
+struct ProjectToTagsData {
+    pub project: ProjectItem,
+    pub tags: Vec<Tag>,
+}
+#[post("/api/project/tag", data = "<data>", format = "json")]
+async fn add_tags_to_project(db: Connection<Db>, data: Json<ProjectToTagsData>) -> Status {
+    let project_item = &data.project;
+    // Converts vec of values to vec of references
+    let tags = data.tags.iter().collect();
+
+    match project_item.add_tag(db, tags).await {
+        Ok(_result) => Status::Ok,
+        Err(_error) => Status::UnprocessableEntity,
+    }
+}
+
 #[get("/api/project_descs/<id>")]
 async fn project_descs(db: Connection<Db>, id: i32) -> Result<Json<Vec<DescItem>>> {
     let resuilts = DescItem::get_all_from_project(db, id).await?;
@@ -373,6 +391,7 @@ async fn rocket() -> _ {
             create_shop_item_image,
             projects,
             projects_by_tag,
+            add_tags_to_project,
             project_descs,
             create_project_item,
             create_project_desc,
