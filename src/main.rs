@@ -319,6 +319,31 @@ async fn create_project_desc(
     }
 }
 
+#[post("/api/project_desc", data = "<project_descs>", format = "json")]
+async fn create_project_desc_many(
+    mut db: Connection<Db>,
+    project_descs: Json<Vec<DescItem>>,
+) -> Result<Status> {
+    let mut tx = (*db).begin().await?;
+
+    // TODO: Janky Error handling. Rewrite to be similar to many function somewhere above
+    for project_desc in project_descs.iter() {
+        let result = project_desc.add_tx(&mut tx).await;
+        match result {
+            Err(error) => {
+                if error.is_left() {
+                    return Err(rocket::response::Debug(error.unwrap_left()));
+                } else {
+                    return Ok(Status::UnprocessableEntity);
+                }
+            }
+            _ => continue,
+        }
+    }
+    tx.commit().await?;
+    Ok(Status::Ok)
+}
+
 #[get("/api/tags")]
 async fn tags(db: Connection<Db>) -> Result<Json<Vec<Tag>>> {
     let results = Tag::get_all(db).await?;
@@ -395,6 +420,7 @@ async fn rocket() -> _ {
             project_descs,
             create_project_item,
             create_project_desc,
+            create_project_desc_many,
             tags,
             create_tag,
             tags_by_project,
