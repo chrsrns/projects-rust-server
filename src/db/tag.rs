@@ -117,15 +117,11 @@ impl Tag {
 }
 
 impl ProjectToTechTag {
-    pub async fn add(
-        mut db: Connection<Db>,
-        project_id: &i32,
-        tag_id: &i32,
-    ) -> Result<ProjectToTechTag, sqlx::Error> {
+    pub async fn add(&self, mut db: Connection<Db>) -> Result<ProjectToTechTag, sqlx::Error> {
         let result = sqlx::query_as!(
             ProjectToTechTag,
             "INSERT INTO project_tech_tag (project_id, tag_id) VALUES ($1, $2) RETURNING id, project_id, tag_id",
-&project_id, &tag_id
+&self.project_id, &self.tag_id
             ,
         )
         .fetch_one(&mut **db)
@@ -140,7 +136,7 @@ impl ProjectToTechTag {
             Err(error) => {
                 println!(
                     "Error when joining project {} and tag {}",
-                    &project_id, &tag_id
+                    &self.project_id, &self.tag_id
                 );
                 Err(error)
             }
