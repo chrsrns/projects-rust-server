@@ -442,6 +442,8 @@ async fn rocket() -> _ {
             create_shop_item_image,
             projects,
             projects_by_tag,
+            tag_category,
+            tag_project,
             add_tags_to_project,
             project_descs,
             create_project_item,
