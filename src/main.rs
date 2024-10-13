@@ -4,8 +4,8 @@ extern crate rocket;
 use db::blog_item::{BlogItem, Content};
 use db::project_item::{DescItem, ProjectItem};
 use db::shop_item::{ShopImage, ShopItem, ShopItemDesc, ShopItemDescMany};
-use db::tag::Tag;
 use db::tag_category_join::TagCategory;
+use db::tag::{ProjectToTechTag, Tag};
 use db::user::User;
 use rocket::http::{Method, Status};
 use rocket::response::status::Created;
@@ -397,6 +397,16 @@ struct TagAndCategoryData {
 #[post("/api/tag_category", data = "<data>", format = "json")]
 async fn tag_category(db: Connection<Db>, data: Json<TagAndCategoryData>) -> Status {
     let result = data.tag.add_category(db, &data.category).await;
+
+    match result {
+        Ok(_) => Status::Ok,
+        Err(_) => Status::InternalServerError,
+    }
+}
+
+#[post("/api/tag_project", data = "<data>", format = "json")]
+async fn tag_project(db: Connection<Db>, data: Json<ProjectToTechTag>) -> Status {
+    let result = data.add(db).await;
 
     match result {
         Ok(_) => Status::Ok,
