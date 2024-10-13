@@ -388,6 +388,22 @@ async fn tags_by_project(
     Ok(Json(results))
 }
 
+#[derive(Serialize, Deserialize)]
+struct TagAndCategoryData {
+    pub tag: Tag,
+    pub category: TagCategory,
+}
+
+#[post("/api/tag_category", data = "<data>", format = "json")]
+async fn tag_category(db: Connection<Db>, data: Json<TagAndCategoryData>) -> Status {
+    let result = data.tag.add_category(db, &data.category).await;
+
+    match result {
+        Ok(_) => Status::Ok,
+        Err(_) => Status::InternalServerError,
+    }
+}
+
 #[get("/api/users")]
 async fn users(db: Connection<Db>) -> Result<Json<Vec<User>>> {
     let results = User::get_all_users(db).await?;
