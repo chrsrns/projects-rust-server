@@ -4,8 +4,8 @@ extern crate rocket;
 use db::blog_item::{BlogItem, Content};
 use db::project_item::{DescItem, ProjectItem};
 use db::shop_item::{ShopImage, ShopItem, ShopItemDesc, ShopItemDescMany};
-use db::tag_category_join::TagCategory;
 use db::tag::{ProjectToTechTag, Tag};
+use db::tag_category_join::TagCategory;
 use db::user::User;
 use rocket::http::{Method, Status};
 use rocket::response::status::Created;
@@ -25,8 +25,6 @@ mod db;
 #[derive(Database)]
 #[database("sqlx")]
 pub struct Db(sqlx::PgPool);
-
-type Result<T, E = rocket::response::Debug<sqlx::Error>> = std::result::Result<T, E>;
 
 pub async fn init_database(rocket: Rocket<Build>) -> fairing::Result {
     match Db::fetch(&rocket) {
@@ -56,70 +54,81 @@ async fn files() -> Option<NamedFile> {
 }
 
 #[post("/api/user", data = "<user>", format = "json")]
-async fn create_user(db: Connection<Db>, mut user: Json<User>) -> Result<Created<Json<User>>> {
+async fn create_user(
+    db: Connection<Db>,
+    user: Json<User>,
+) -> Result<Created<Json<User>>, rocket::http::Status> {
     let user_deser = User {
         id: None,
         username: user.username.clone(),
         upassword: user.upassword.clone(),
         email: user.email.clone(),
     };
-    let result = user_deser.add(db).await?;
 
-    match result.id {
-        Some(resulted_id) => {
-            user.id = Some(resulted_id);
+    match user_deser.add(db).await {
+        Ok(result) => {
+            let resulted_id = result.id.expect("This shouldn't have happened, but it did");
+            let user = Json(User {
+                id: Some(resulted_id),
+                username: user.username.clone(),
+                upassword: user.upassword.clone(),
+                email: user.email.clone(),
+            });
             Ok(Created::new("/").body(user))
         }
-
-        None => {
-            // TODO: Improve error handling
-            panic!("This shouldn't have happened, but it did");
-        }
+        Err(_) => Err(rocket::http::Status::InternalServerError),
     }
 }
 
 #[get("/api/shopitems")]
-async fn shop_items(db: Connection<Db>) -> Result<Json<Vec<ShopItem>>> {
-    let results = ShopItem::get_all(db).await?;
-    Ok(Json(results))
+async fn shop_items(db: Connection<Db>) -> Result<Json<Vec<ShopItem>>, rocket::http::Status> {
+    match ShopItem::get_all(db).await {
+        Ok(results) => Ok(Json(results)),
+        Err(_) => Err(rocket::http::Status::InternalServerError),
+    }
 }
-
 #[post("/api/shopitem", data = "<shop_item>", format = "json")]
 async fn create_shop_item(
     db: Connection<Db>,
     mut shop_item: Json<ShopItem>,
-) -> Result<Created<Json<ShopItem>>> {
+) -> Result<Created<Json<ShopItem>>, rocket::http::Status> {
     let shop_item_deser = ShopItem {
         id: None,
         iname: shop_item.iname.clone(),
         img_link: shop_item.img_link.clone(),
         price: shop_item.price,
     };
-    let result = shop_item_deser.add(db).await?;
+    let result = shop_item_deser.add(db).await;
 
-    match result.id {
-        Some(resulted_id) => {
-            shop_item.id = Some(resulted_id);
-            Ok(Created::new("/").body(shop_item))
+    match result {
+        Ok(query_result) => {
+            if let Some(resulted_id) = query_result.id {
+                shop_item.id = Some(resulted_id);
+                Ok(Created::new("/").body(shop_item))
+            } else {
+                Err(rocket::http::Status::InternalServerError)
+            }
         }
-
-        None => {
-            // TODO: Improve error handling
-            panic!("This shouldn't have happened, but it did");
-        }
+        Err(_) => Err(rocket::http::Status::InternalServerError),
     }
 }
 
 #[get("/api/shopitemimages/<id>")]
-async fn shop_item_images(db: Connection<Db>, id: i32) -> Result<Json<Vec<ShopImage>>> {
-    Ok(Json(ShopImage::get_all_from_shop_item(db, id).await?))
+async fn shop_item_images(
+    db: Connection<Db>,
+    id: i32,
+) -> Result<Json<Vec<ShopImage>>, rocket::http::Status> {
+    match ShopImage::get_all_from_shop_item(db, id).await {
+        Ok(results) => Ok(Json(results)),
+        Err(_) => Err(rocket::http::Status::InternalServerError),
+    }
 }
 
 #[post("/api/shopitemimage", data = "<shop_item_image>", format = "json")]
 async fn create_shop_item_image(
     db: Connection<Db>,
     shop_item_image: Json<ShopImage>,
-) -> Result<Created<Json<ShopImage>>> {
+) -> Result<Created<Json<ShopImage>>, rocket::http::Status> {
     let shop_item_desc_deser = ShopImage {
         id: None,
         shop_item_id: shop_item_image.shop_item_id,
@@ -130,32 +139,41 @@ async fn create_shop_item_image(
         Ok(query_result) => query_result,
         Err(error) => match error {
             Left(sql_error) => {
-                return Err(rocket::response::Debug(sql_error));
+                eprintln!("SQL Error occurred: {:?}", sql_error);
+                return Err(rocket::http::Status::InternalServerError);
             }
             Right(_) => {
-                return Err(rocket::response::Debug(sqlx::Error::TypeNotFound {
-                    type_name: String::from("shop_item_id"),
-                }));
+                eprintln!("Type not found for 'shop_item_id'");
+                return Err(rocket::http::Status::BadRequest);
             }
         },
     };
 
     match result.id {
         Some(_) => Ok(Created::new("/").body(Json(result))),
-        None => Err(rocket::response::Debug(sqlx::Error::RowNotFound)),
+        None => {
+            eprintln!("Error: Row not found for the given shop item image.");
+            Err(rocket::http::Status::NotFound)
+        }
     }
 }
 
 #[get("/api/shopitemdescs/<id>")]
-async fn shop_item_descs(db: Connection<Db>, id: i32) -> Result<Json<Vec<ShopItemDesc>>> {
-    Ok(Json(ShopItemDesc::get_all_from_shop_item(db, id).await?))
+async fn shop_item_descs(
+    db: Connection<Db>,
+    id: i32,
+) -> Result<Json<Vec<ShopItemDesc>>, rocket::http::Status> {
+    match ShopItemDesc::get_all_from_shop_item(db, id).await {
+        Ok(results) => Ok(Json(results)),
+        Err(_) => Err(rocket::http::Status::InternalServerError),
+    }
 }
 
 #[post("/api/shopitemdesc", data = "<shop_item_desc>", format = "json")]
 async fn create_shop_item_desc(
     db: Connection<Db>,
     shop_item_desc: Json<ShopItemDesc>,
-) -> Result<Created<Json<ShopItemDesc>>> {
+) -> Result<Created<Json<ShopItemDesc>>, rocket::http::Status> {
     let shop_item_desc_deser = ShopItemDesc {
         id: None,
         shop_item_id: shop_item_desc.shop_item_id,
@@ -164,20 +182,18 @@ async fn create_shop_item_desc(
     let result = match shop_item_desc_deser.add(db).await {
         Ok(query_result) => query_result,
         Err(error) => match error {
-            Left(sql_error) => {
-                return Err(rocket::response::Debug(sql_error));
+            Left(_) => {
+                return Err(rocket::http::Status::InternalServerError);
             }
             Right(_) => {
-                return Err(rocket::response::Debug(sqlx::Error::TypeNotFound {
-                    type_name: String::from("shop_item_id"),
-                }));
+                return Err(rocket::http::Status::BadRequest);
             }
         },
     };
 
     match result.id {
         Some(_) => Ok(Created::new("/").body(Json(result))),
-        None => Err(rocket::response::Debug(sqlx::Error::RowNotFound)),
+        None => Err(rocket::http::Status::NotFound),
     }
 }
 
@@ -189,59 +205,115 @@ async fn create_shop_item_desc(
 async fn create_shop_item_desc_many(
     mut db: Connection<Db>,
     shop_item_desc_many: Json<ShopItemDescMany>,
-) -> Result<Status> {
-    let mut tx = (*db).begin().await?;
+) -> Result<Status, rocket::http::Status> {
+    let mut tx = match (*db).begin().await {
+        Ok(tx) => tx,
+        Err(error) => {
+            eprintln!("Error: Could not start transaction: {}", error);
+            return Err(rocket::http::Status::InternalServerError);
+        }
+    };
     for content in &shop_item_desc_many.contents {
-        sqlx::query_as!(
+        match sqlx::query_as!(
             ShopItemDesc,
             "INSERT INTO shop_item_desc (shop_item_id, content) VALUES ($1, $2)",
             shop_item_desc_many.shop_item_id,
             content
         )
         .execute(&mut *tx)
-        .await?;
+        .await
+        {
+            Ok(_) => continue,
+            Err(error) => {
+                eprintln!("Error: Could not add shop item description: {}", error);
+                let _ = tx.rollback().await;
+                return Err(rocket::http::Status::InternalServerError);
+            }
+        };
     }
-    tx.commit().await?;
-    Ok(Status::Ok)
+    match tx.commit().await {
+        Ok(_) => Ok(Status::Ok),
+        Err(error) => {
+            eprintln!("Error: Could not commit transaction: {}", error);
+            Err(rocket::http::Status::InternalServerError)
+        }
+    }
 }
 
 #[get("/api/blogs")]
-async fn blogs(db: Connection<Db>) -> Result<Json<Vec<BlogItem>>> {
-    let results = BlogItem::get_all(db).await?;
-    Ok(Json(results))
+async fn blogs(db: Connection<Db>) -> Result<Json<Vec<BlogItem>>, rocket::http::Status> {
+    match BlogItem::get_all(db).await {
+        Ok(results) => Ok(Json(results)),
+        Err(error) => {
+            eprintln!("Error: Could not fetch blog items: {}", error);
+            Err(rocket::http::Status::InternalServerError)
+        }
+    }
 }
 
 #[post("/api/blog", data = "<blog_item>", format = "json")]
 async fn create_blog(
     db: Connection<Db>,
     blog_item: Json<BlogItem>,
-) -> Result<Created<Json<BlogItem>>> {
+) -> Result<Created<Json<BlogItem>>, rocket::http::Status> {
     let blog_item_deser = BlogItem {
         id: None,
         blog_title: blog_item.blog_title.clone(),
         header_img: blog_item.header_img.clone(),
         content: blog_item.content.clone(),
     };
-    let result = blog_item_deser.add(db).await?;
+    let result = blog_item_deser.add(db).await;
 
-    Ok(Created::new("/").body(Json(result)))
+    match result {
+        Ok(query_result) => {
+            if query_result.id.is_some() {
+                Ok(Created::new("/").body(Json(query_result)))
+            } else {
+                Err(rocket::http::Status::InternalServerError)
+            }
+        }
+        Err(_) => Err(rocket::http::Status::InternalServerError),
+    }
 }
 
 #[get("/api/blog-content/<id>")]
-async fn blog_contents(db: Connection<Db>, id: i32) -> Result<Json<Vec<Content>>> {
-    let results = Content::get_all_from_blog(db, id).await?;
-    Ok(Json(results))
+async fn blog_contents(
+    db: Connection<Db>,
+    id: i32,
+) -> Result<Json<Vec<Content>>, rocket::http::Status> {
+    match Content::get_all_from_blog(db, id).await {
+        Ok(results) => Ok(Json(results)),
+        Err(error) => {
+            eprintln!("Error: Could not fetch blog content: {}", error);
+            Err(rocket::http::Status::InternalServerError)
+        }
+    }
 }
 
 #[get("/api/projects")]
-async fn projects(db: Connection<Db>) -> Result<Json<Vec<ProjectItem>>> {
-    let results = ProjectItem::get_all(db).await?;
+async fn projects(db: Connection<Db>) -> Result<Json<Vec<ProjectItem>>, rocket::http::Status> {
+    let results = match ProjectItem::get_all(db).await {
+        Ok(results) => results,
+        Err(error) => {
+            eprintln!("Error: Could not fetch projects: {}", error);
+            return Err(rocket::http::Status::InternalServerError);
+        }
+    };
     Ok(Json(results))
 }
 
 #[get("/api/projects-by-tag/<tag_id>")]
-async fn projects_by_tag(db: Connection<Db>, tag_id: i32) -> Result<Json<Vec<ProjectItem>>> {
-    let results = ProjectItem::get_projects_by_tag(db, tag_id).await?;
+async fn projects_by_tag(
+    db: Connection<Db>,
+    tag_id: i32,
+) -> Result<Json<Vec<ProjectItem>>, rocket::http::Status> {
+    let results = match ProjectItem::get_projects_by_tag(db, tag_id).await {
+        Ok(results) => results,
+        Err(error) => {
+            eprintln!("Error: Could not fetch projects by tag: {}", error);
+            return Err(rocket::http::Status::InternalServerError);
+        }
+    };
     Ok(Json(results))
 }
 
@@ -249,20 +321,26 @@ async fn projects_by_tag(db: Connection<Db>, tag_id: i32) -> Result<Json<Vec<Pro
 async fn create_project_item(
     db: Connection<Db>,
     project_item: Json<ProjectItem>,
-) -> Result<Created<Json<ProjectItem>>> {
+) -> Result<Created<Json<ProjectItem>>, rocket::http::Status> {
     let project_item_deser = ProjectItem {
         id: None,
         title: project_item.title.clone(),
         thumbnail_img_link: project_item.thumbnail_img_link.clone(),
         desc: project_item.desc.clone(),
     };
-    let result = project_item_deser.add(db).await?;
+    let result = match project_item_deser.add(db).await {
+        Ok(result) => result,
+        Err(error) => {
+            eprintln!("Error: Could not add project item: {}", error);
+            return Err(rocket::http::Status::InternalServerError);
+        }
+    };
 
     match result.id {
         Some(_) => Ok(Created::new("/").body(Json(result))),
         None => {
-            // TODO: Improve error handling
-            panic!("This shouldn't have happened, but it did");
+            eprintln!("Error: Could not add project item: Row not found for the given id");
+            Err(rocket::http::Status::InternalServerError)
         }
     }
 }
@@ -285,16 +363,24 @@ async fn add_tags_to_project(db: Connection<Db>, data: Json<ProjectToTagsData>) 
 }
 
 #[get("/api/project_descs/<id>")]
-async fn project_descs(db: Connection<Db>, id: i32) -> Result<Json<Vec<DescItem>>> {
-    let resuilts = DescItem::get_all_from_project(db, id).await?;
-    Ok(Json(resuilts))
+async fn project_descs(
+    db: Connection<Db>,
+    id: i32,
+) -> Result<Json<Vec<DescItem>>, rocket::http::Status> {
+    match DescItem::get_all_from_project(db, id).await {
+        Ok(results) => Ok(Json(results)),
+        Err(error) => {
+            eprintln!("Error: Could not fetch project descriptions: {}", error);
+            Err(rocket::http::Status::InternalServerError)
+        }
+    }
 }
 
 #[post("/api/project_desc", data = "<project_desc>", format = "json")]
 async fn create_project_desc(
     db: Connection<Db>,
     project_desc: Json<DescItem>,
-) -> Result<Created<Json<DescItem>>> {
+) -> Result<Created<Json<DescItem>>, rocket::http::Status> {
     let project_desc_deser = DescItem {
         id: None,
         project_id: project_desc.project_id,
@@ -303,19 +389,17 @@ async fn create_project_desc(
     let result = match project_desc_deser.add(db).await {
         Ok(query_result) => query_result,
         Err(error) => match error {
-            Left(sql_error) => {
-                return Err(rocket::response::Debug(sql_error));
+            Left(_) => {
+                return Err(rocket::http::Status::BadRequest);
             }
             Right(_) => {
-                return Err(rocket::response::Debug(sqlx::Error::TypeNotFound {
-                    type_name: String::from("project_id"),
-                }));
+                return Err(rocket::http::Status::InternalServerError);
             }
         },
     };
     match result.id {
         Some(_) => Ok(Created::new("/").body(Json(result))),
-        None => Err(rocket::response::Debug(sqlx::Error::RowNotFound)),
+        None => Err(rocket::http::Status::NotFound),
     }
 }
 
@@ -323,8 +407,14 @@ async fn create_project_desc(
 async fn create_project_desc_many(
     mut db: Connection<Db>,
     project_descs: Json<Vec<DescItem>>,
-) -> Result<Status> {
-    let mut tx = (*db).begin().await?;
+) -> Result<Status, rocket::http::Status> {
+    let mut tx = match (*db).begin().await {
+        Ok(tx) => tx,
+        Err(error) => {
+            eprintln!("Error: Could not start transaction: {}", error);
+            return Err(rocket::http::Status::InternalServerError);
+        }
+    };
 
     // TODO: Janky Error handling. Rewrite to be similar to many function somewhere above
     for project_desc in project_descs.iter() {
@@ -332,7 +422,7 @@ async fn create_project_desc_many(
         match result {
             Err(error) => {
                 if error.is_left() {
-                    return Err(rocket::response::Debug(error.unwrap_left()));
+                    return Err(rocket::http::Status::InternalServerError);
                 } else {
                     return Ok(Status::UnprocessableEntity);
                 }
@@ -340,24 +430,37 @@ async fn create_project_desc_many(
             _ => continue,
         }
     }
-    tx.commit().await?;
-    Ok(Status::Ok)
+    match tx.commit().await {
+        Ok(_) => Ok(Status::Ok),
+        Err(error) => {
+            eprintln!("Error: Could not commit transaction: {}", error);
+            Err(rocket::http::Status::InternalServerError)
+        }
+    }
 }
 
 #[get("/api/tags")]
-async fn tags(db: Connection<Db>) -> Result<Json<Vec<Tag>>> {
-    let results = Tag::get_all(db).await?;
-    Ok(Json(results))
+async fn tags(db: Connection<Db>) -> Result<Json<Vec<Tag>>, rocket::http::Status> {
+    match Tag::get_all(db).await {
+        Ok(results) => Ok(Json(results)),
+        Err(_) => Err(rocket::http::Status::InternalServerError),
+    }
 }
 
 #[post("/api/tag", data = "<tag>", format = "json")]
-async fn create_tag(db: Connection<Db>, tag: Json<Tag>) -> Result<Created<Json<Tag>>> {
+async fn create_tag(
+    db: Connection<Db>,
+    tag: Json<Tag>,
+) -> Result<Created<Json<Tag>>, rocket::http::Status> {
     let tag_deser = Tag {
         id: None,
         text: tag.text.clone(),
     };
-    let result = tag_deser.add_or_get(db).await?;
-    Ok(Created::new("/").body(Json(result)))
+    let result = tag_deser.add_or_get(db).await;
+    match result {
+        Ok(result) => Ok(Created::new("/").body(Json(result))),
+        Err(_) => Err(rocket::http::Status::InternalServerError),
+    }
 }
 
 #[get("/api/tags-by-category/<category>")]
@@ -415,9 +518,11 @@ async fn tag_project(db: Connection<Db>, data: Json<ProjectToTechTag>) -> Status
 }
 
 #[get("/api/users")]
-async fn users(db: Connection<Db>) -> Result<Json<Vec<User>>> {
-    let results = User::get_all_users(db).await?;
-    Ok(Json(results))
+async fn users(db: Connection<Db>) -> Result<Json<Vec<User>>, rocket::http::Status> {
+    match User::get_all_users(db).await {
+        Ok(results) => Ok(Json(results)),
+        Err(_) => Err(rocket::http::Status::InternalServerError),
+    }
 }
 
 #[launch]
