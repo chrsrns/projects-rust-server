@@ -21,3 +21,6 @@ Cargo.lock
 .lazy.lua
 Rocket.toml
 .sqlfluff
+cache/release
+
+online-shopping-solidjs.bak
