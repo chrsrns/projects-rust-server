@@ -36,6 +36,9 @@ pub async fn create_user(
             });
             Ok(Created::new("/").body(user))
         }
-        Err(_) => Err(Status::InternalServerError),
+        Err(e) => {
+            eprintln!("Error creating user: {}", e);
+            Err(Status::InternalServerError)
+        }
     }
 }

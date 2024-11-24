@@ -31,7 +31,10 @@ pub async fn create_tag(
     let result = tag_deser.add_or_get(db).await;
     match result {
         Ok(result) => Ok(Created::new("/").body(Json(result))),
-        Err(_) => Err(rocket::http::Status::InternalServerError),
+        Err(e) => {
+            eprintln!("Error creating or retrieving tag: {}", e);
+            Err(rocket::http::Status::InternalServerError)
+        }
     }
 }
 

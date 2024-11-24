@@ -11,7 +11,7 @@ pub async fn blogs(db: Connection<Db>) -> Result<Json<Vec<BlogItem>>, rocket::ht
     match BlogItem::get_all(db).await {
         Ok(results) => Ok(Json(results)),
         Err(error) => {
-            eprintln!("Error: Could not get blog items: {}", error);
+            eprintln!("Error in blogs: Could not get blog items: {}", error);
             Err(rocket::http::Status::InternalServerError)
         }
     }
@@ -25,7 +25,7 @@ pub async fn blog_contents(
     match Content::get_all_from_blog(db, id).await {
         Ok(results) => Ok(Json(results)),
         Err(error) => {
-            eprintln!("Error: Could not get blog contents: {}", error);
+            eprintln!("Error in blog_contents: Could not get blog contents: {}", error);
             Err(rocket::http::Status::InternalServerError)
         }
     }
@@ -49,9 +49,13 @@ pub async fn create_blog(
             if query_result.id.is_some() {
                 Ok(Created::new("/").body(Json(query_result)))
             } else {
+                eprintln!("Error in create_blog: Could not create blog item");
                 Err(rocket::http::Status::InternalServerError)
             }
         }
-        Err(_) => Err(rocket::http::Status::InternalServerError),
+        Err(error) => {
+            eprintln!("Error in create_blog: Could not create blog item: {}", error);
+            Err(rocket::http::Status::InternalServerError)
+        }
     }
 }
