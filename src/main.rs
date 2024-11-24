@@ -10,14 +10,12 @@ use rocket::http::{Method, Status};
 use rocket::response::status::Created;
 use rocket::serde::json::Json;
 use rocket::{fairing, Build};
-use rocket::fs::NamedFile;
-use rocket::{Rocket};
+use rocket::Rocket;
 use rocket_cors::{AllowedOrigins, CorsOptions};
 use rocket_db_pools::{Connection, Database};
 use serde::{Deserialize, Serialize};
 use sqlx::Acquire;
 use sqlx::Either::{Left, Right};
-use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 mod db;
