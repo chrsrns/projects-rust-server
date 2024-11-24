@@ -1,18 +1,21 @@
-pub use rocket::response::status::Created;
-pub use rocket::serde::json::Json;
-pub use rocket::{get, post};
-pub use rocket_db_pools::Connection;
+use rocket::http::Status;
+use rocket::serde::json::Json;
+use rocket::{get, post};
+use rocket_db_pools::Connection;
 
 pub use crate::db::blog_item::{BlogItem, Content};
 pub use crate::Db;
+pub use crate::api::{ApiResponse, ApiResult, ApiError};
 
 #[get("/api/blogs")]
-pub async fn blogs(db: Connection<Db>) -> Result<Json<Vec<BlogItem>>, rocket::http::Status> {
+pub async fn blogs(db: Connection<Db>) -> ApiResult<Vec<BlogItem>> {
     match BlogItem::get_all(db).await {
-        Ok(results) => Ok(Json(results)),
-        Err(error) => {
-            eprintln!("Error in blogs: Could not get blog items: {}", error);
-            Err(rocket::http::Status::InternalServerError)
+        Ok(results) => Ok(ApiResponse::success(results)),
+        Err(_error) => {
+            Err(ApiError::new(
+                "Failed to fetch blog items",
+                Status::InternalServerError
+            ))
         }
     }
 }
@@ -21,12 +24,14 @@ pub async fn blogs(db: Connection<Db>) -> Result<Json<Vec<BlogItem>>, rocket::ht
 pub async fn blog_contents(
     db: Connection<Db>,
     id: i32,
-) -> Result<Json<Vec<Content>>, rocket::http::Status> {
+) -> ApiResult<Vec<Content>> {
     match Content::get_all_from_blog(db, id).await {
-        Ok(results) => Ok(Json(results)),
-        Err(error) => {
-            eprintln!("Error in blog_contents: Could not get blog contents: {}", error);
-            Err(rocket::http::Status::InternalServerError)
+        Ok(results) => Ok(ApiResponse::success(results)),
+        Err(_error) => {
+            Err(ApiError::new(
+                "Failed to fetch blog contents",
+                Status::InternalServerError
+            ))
         }
     }
 }
@@ -35,7 +40,7 @@ pub async fn blog_contents(
 pub async fn create_blog(
     db: Connection<Db>,
     blog_item: Json<BlogItem>,
-) -> Result<Created<Json<BlogItem>>, rocket::http::Status> {
+) -> ApiResult<BlogItem> {
     let blog_item_deser = BlogItem {
         id: None,
         blog_title: blog_item.blog_title.clone(),
@@ -43,19 +48,23 @@ pub async fn create_blog(
         content: blog_item.content.clone(),
     };
     let result = blog_item_deser.add(db).await;
-
+    
     match result {
         Ok(query_result) => {
             if query_result.id.is_some() {
-                Ok(Created::new("/").body(Json(query_result)))
+                Ok(ApiResponse::success(query_result))
             } else {
-                eprintln!("Error in create_blog: Could not create blog item");
-                Err(rocket::http::Status::InternalServerError)
+                Err(ApiError::new(
+                    "Failed to create blog item: No ID returned",
+                    Status::InternalServerError
+                ))
             }
         }
-        Err(error) => {
-            eprintln!("Error in create_blog: Could not create blog item: {}", error);
-            Err(rocket::http::Status::InternalServerError)
+        Err(_error) => {
+            Err(ApiError::new(
+                "Failed to create blog item",
+                Status::InternalServerError
+            ))
         }
     }
 }

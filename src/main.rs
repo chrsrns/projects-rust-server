@@ -9,6 +9,7 @@ use rocket_db_pools::Database;
 
 mod db;
 mod routes;
+mod api;
 
 #[derive(Database)]
 #[database("sqlx")]

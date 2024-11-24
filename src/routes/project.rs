@@ -1,5 +1,4 @@
 use rocket::http::Status;
-use rocket::response::status::Created;
 use rocket::serde::json::Json;
 use rocket::{get, post};
 use rocket_db_pools::Connection;
@@ -10,32 +9,29 @@ use sqlx::Either::{Left, Right};
 use crate::db::project_item::{DescItem, ProjectItem};
 use crate::db::tag::Tag;
 use crate::Db;
+use crate::api::{ApiResponse, ApiResult, ApiError};
 
 #[get("/api/projects")]
-pub async fn projects(db: Connection<Db>) -> Result<Json<Vec<ProjectItem>>, rocket::http::Status> {
-    let results = match ProjectItem::get_all(db).await {
-        Ok(results) => results,
-        Err(error) => {
-            eprintln!("Error: Could not get project items: {}", error);
-            return Err(rocket::http::Status::InternalServerError);
+pub async fn projects(db: Connection<Db>) -> ApiResult<Vec<ProjectItem>> {
+    match ProjectItem::get_all(db).await {
+        Ok(results) => Ok(ApiResponse::success(results)),
+        Err(_error) => {
+            Err(ApiError::new("Failed to fetch project items", Status::InternalServerError))
         }
-    };
-    Ok(Json(results))
+    }
 }
 
 #[get("/api/projects-by-tag/<tag_id>")]
 pub async fn projects_by_tag(
     db: Connection<Db>,
     tag_id: i32,
-) -> Result<Json<Vec<ProjectItem>>, rocket::http::Status> {
-    let results = match ProjectItem::get_projects_by_tag(db, tag_id).await {
-        Ok(results) => results,
-        Err(error) => {
-            eprintln!("Error: Could not get project items by tag: {}", error);
-            return Err(rocket::http::Status::InternalServerError);
+) -> ApiResult<Vec<ProjectItem>> {
+    match ProjectItem::get_projects_by_tag(db, tag_id).await {
+        Ok(results) => Ok(ApiResponse::success(results)),
+        Err(_error) => {
+            Err(ApiError::new("Failed to fetch projects by tag", Status::InternalServerError))
         }
-    };
-    Ok(Json(results))
+    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -45,14 +41,18 @@ pub struct ProjectToTagsData {
 }
 
 #[post("/api/project/tag", data = "<data>", format = "json")]
-pub async fn add_tags_to_project(db: Connection<Db>, data: Json<ProjectToTagsData>) -> Status {
+pub async fn add_tags_to_project(db: Connection<Db>, data: Json<ProjectToTagsData>) -> ApiResult<()> {
     let project_item = &data.project;
-    // Converts vec of values to vec of references
     let tags = data.tags.iter().collect();
 
     match project_item.add_tag(db, tags).await {
-        Ok(_result) => Status::Ok,
-        Err(_error) => Status::UnprocessableEntity,
+        Ok(_result) => Ok(ApiResponse::success(())),
+        Err(_error) => {
+            Err(ApiError::new(
+                "Failed to add tags to project",
+                Status::InternalServerError
+            ))
+        }
     }
 }
 
@@ -60,12 +60,14 @@ pub async fn add_tags_to_project(db: Connection<Db>, data: Json<ProjectToTagsDat
 pub async fn project_descs(
     db: Connection<Db>,
     id: i32,
-) -> Result<Json<Vec<DescItem>>, rocket::http::Status> {
+) -> ApiResult<Vec<DescItem>> {
     match DescItem::get_all_from_project(db, id).await {
-        Ok(results) => Ok(Json(results)),
-        Err(error) => {
-            eprintln!("Error: Could not get project descriptions: {}", error);
-            Err(rocket::http::Status::InternalServerError)
+        Ok(results) => Ok(ApiResponse::success(results)),
+        Err(_error) => {
+            Err(ApiError::new(
+                "Failed to fetch project descriptions",
+                Status::InternalServerError
+            ))
         }
     }
 }
@@ -74,26 +76,29 @@ pub async fn project_descs(
 pub async fn create_project_item(
     db: Connection<Db>,
     project_item: Json<ProjectItem>,
-) -> Result<Created<Json<ProjectItem>>, rocket::http::Status> {
+) -> ApiResult<ProjectItem> {
     let project_item_deser = ProjectItem {
         id: None,
         title: project_item.title.clone(),
         thumbnail_img_link: project_item.thumbnail_img_link.clone(),
         desc: project_item.desc.clone(),
     };
-    let result = match project_item_deser.add(db).await {
-        Ok(result) => result,
-        Err(error) => {
-            eprintln!("Error: Could not add project item: {}", error);
-            return Err(rocket::http::Status::InternalServerError);
-        }
-    };
 
-    match result.id {
-        Some(_) => Ok(Created::new("/").body(Json(result))),
-        None => {
-            eprintln!("Error: Could not add project item: Row not found for the given id");
-            Err(rocket::http::Status::InternalServerError)
+    match project_item_deser.add(db).await {
+        Ok(result) => {
+            match result.id {
+                Some(_) => Ok(ApiResponse::success(result)),
+                None => Err(ApiError::new(
+                    "Failed to create project: No ID returned",
+                    Status::InternalServerError
+                ))
+            }
+        }
+        Err(_error) => {
+            Err(ApiError::new(
+                "Failed to create project",
+                Status::InternalServerError
+            ))
         }
     }
 }
@@ -102,26 +107,37 @@ pub async fn create_project_item(
 pub async fn create_project_desc(
     db: Connection<Db>,
     project_desc: Json<DescItem>,
-) -> Result<Created<Json<DescItem>>, rocket::http::Status> {
+) -> ApiResult<DescItem> {
     let project_desc_deser = DescItem {
         id: None,
         project_id: project_desc.project_id,
         content: project_desc.content.clone(),
     };
+
     let result = match project_desc_deser.add(db).await {
         Ok(query_result) => query_result,
         Err(error) => match error {
             Left(_) => {
-                return Err(rocket::http::Status::BadRequest);
+                return Err(ApiError::new(
+                    "Failed to create project description: Invalid input",
+                    Status::BadRequest
+                ));
             }
-            Right(_) => {
-                return Err(rocket::http::Status::InternalServerError);
+            Right(_error) => {
+                return Err(ApiError::new(
+                    "Failed to create project description",
+                    Status::InternalServerError
+                ));
             }
         },
     };
+
     match result.id {
-        Some(_) => Ok(Created::new("/").body(Json(result))),
-        None => Err(rocket::http::Status::NotFound),
+        Some(_) => Ok(ApiResponse::success(result)),
+        None => Err(ApiError::new(
+            "Failed to create project description: No ID returned",
+            Status::InternalServerError
+        )),
     }
 }
 
@@ -129,34 +145,44 @@ pub async fn create_project_desc(
 pub async fn create_project_desc_many(
     mut db: Connection<Db>,
     project_descs: Json<Vec<DescItem>>,
-) -> Result<Status, rocket::http::Status> {
+) -> ApiResult<()> {
     let mut tx = match (*db).begin().await {
         Ok(tx) => tx,
-        Err(error) => {
-            eprintln!("Error: Could not start transaction: {}", error);
-            return Err(rocket::http::Status::InternalServerError);
+        Err(_error) => {
+            return Err(ApiError::new(
+                "Failed to create project descriptions",
+                Status::InternalServerError
+            ));
         }
     };
 
-    // TODO: Janky Error handling. Rewrite to be similar to many function somewhere above
     for project_desc in project_descs.iter() {
         let result = project_desc.add_tx(&mut tx).await;
         match result {
             Err(error) => {
                 if error.is_left() {
-                    return Err(rocket::http::Status::InternalServerError);
+                    return Err(ApiError::new(
+                        "Failed to create project descriptions: Invalid input",
+                        Status::BadRequest
+                    ));
                 } else {
-                    return Ok(Status::UnprocessableEntity);
+                    return Err(ApiError::new(
+                        "Failed to create project descriptions",
+                        Status::InternalServerError
+                    ));
                 }
             }
             _ => continue,
         }
     }
+
     match tx.commit().await {
-        Ok(_) => Ok(Status::Ok),
-        Err(error) => {
-            eprintln!("Error: Could not commit transaction: {}", error);
-            Err(rocket::http::Status::InternalServerError)
+        Ok(_) => Ok(ApiResponse::success(())),
+        Err(_error) => {
+            Err(ApiError::new(
+                "Failed to create project descriptions",
+                Status::InternalServerError
+            ))
         }
     }
 }

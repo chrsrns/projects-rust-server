@@ -1,45 +1,52 @@
 use rocket::http::Status;
-use rocket::response::status::Created;
 use rocket::serde::json::Json;
 use rocket::{get, post};
 use rocket_db_pools::Connection;
 
 use crate::db::shop_item::{ShopImage, ShopItem, ShopItemDesc, ShopItemDescMany};
 use crate::Db;
+use crate::api::{ApiResponse, ApiResult, ApiError};
 use sqlx::Either::{Left, Right};
 use sqlx::Acquire;
 
 #[get("/api/shopitems")]
-pub async fn shop_items(db: Connection<Db>) -> Result<Json<Vec<ShopItem>>, Status> {
+pub async fn shop_items(db: Connection<Db>) -> ApiResult<Vec<ShopItem>> {
     match ShopItem::get_all(db).await {
-        Ok(results) => Ok(Json(results)),
-        Err(_) => Err(Status::InternalServerError),
+        Ok(results) => Ok(ApiResponse::success(results)),
+        Err(_) => Err(ApiError::new(
+            "Failed to fetch shop items",
+            Status::InternalServerError
+        )),
     }
 }
 
 #[post("/api/shopitem", data = "<shop_item>", format = "json")]
 pub async fn create_shop_item(
     db: Connection<Db>,
-    mut shop_item: Json<ShopItem>,
-) -> Result<Created<Json<ShopItem>>, Status> {
+    shop_item: Json<ShopItem>,
+) -> ApiResult<ShopItem> {
     let shop_item_deser = ShopItem {
         id: None,
         iname: shop_item.iname.clone(),
         img_link: shop_item.img_link.clone(),
         price: shop_item.price,
     };
-    let result = shop_item_deser.add(db).await;
-
-    match result {
+    
+    match shop_item_deser.add(db).await {
         Ok(query_result) => {
-            if let Some(resulted_id) = query_result.id {
-                shop_item.id = Some(resulted_id);
-                Ok(Created::new("/").body(shop_item))
+            if query_result.id.is_some() {
+                Ok(ApiResponse::success(query_result))
             } else {
-                Err(Status::InternalServerError)
+                Err(ApiError::new(
+                    "Failed to create shop item: No ID returned",
+                    Status::InternalServerError
+                ))
             }
         }
-        Err(_) => Err(Status::InternalServerError),
+        Err(_) => Err(ApiError::new(
+            "Failed to create shop item",
+            Status::InternalServerError
+        )),
     }
 }
 
@@ -47,10 +54,13 @@ pub async fn create_shop_item(
 pub async fn shop_item_images(
     db: Connection<Db>,
     id: i32,
-) -> Result<Json<Vec<ShopImage>>, Status> {
+) -> ApiResult<Vec<ShopImage>> {
     match ShopImage::get_all_from_shop_item(db, id).await {
-        Ok(results) => Ok(Json(results)),
-        Err(_) => Err(Status::InternalServerError),
+        Ok(results) => Ok(ApiResponse::success(results)),
+        Err(_) => Err(ApiError::new(
+            "Failed to fetch shop item images",
+            Status::InternalServerError
+        )),
     }
 }
 
@@ -58,33 +68,38 @@ pub async fn shop_item_images(
 pub async fn create_shop_item_image(
     db: Connection<Db>,
     shop_item_image: Json<ShopImage>,
-) -> Result<Created<Json<ShopImage>>, Status> {
+) -> ApiResult<ShopImage> {
     let shop_item_desc_deser = ShopImage {
         id: None,
         shop_item_id: shop_item_image.shop_item_id,
         tooltip: shop_item_image.tooltip.clone(),
         img_link: shop_item_image.img_link.clone(),
     };
+    
     let result = match shop_item_desc_deser.add(db).await {
         Ok(query_result) => query_result,
         Err(error) => match error {
-            Left(sql_error) => {
-                eprintln!("SQL Error occurred: {:?}", sql_error);
-                return Err(Status::InternalServerError);
+            Left(_) => {
+                return Err(ApiError::new(
+                    "Failed to create shop item image",
+                    Status::InternalServerError
+                ));
             }
             Right(_) => {
-                eprintln!("Type not found for 'shop_item_id'");
-                return Err(Status::BadRequest);
+                return Err(ApiError::new(
+                    "Invalid shop_item_id",
+                    Status::BadRequest
+                ));
             }
         },
     };
 
     match result.id {
-        Some(_) => Ok(Created::new("/").body(Json(result))),
-        None => {
-            eprintln!("Error: Row not found for the given shop item image.");
-            Err(Status::NotFound)
-        }
+        Some(_) => Ok(ApiResponse::success(result)),
+        None => Err(ApiError::new(
+            "Failed to create shop item image: No ID returned",
+            Status::NotFound
+        )),
     }
 }
 
@@ -92,10 +107,13 @@ pub async fn create_shop_item_image(
 pub async fn shop_item_descs(
     db: Connection<Db>,
     id: i32,
-) -> Result<Json<Vec<ShopItemDesc>>, Status> {
+) -> ApiResult<Vec<ShopItemDesc>> {
     match ShopItemDesc::get_all_from_shop_item(db, id).await {
-        Ok(results) => Ok(Json(results)),
-        Err(_) => Err(Status::InternalServerError),
+        Ok(results) => Ok(ApiResponse::success(results)),
+        Err(_) => Err(ApiError::new(
+            "Failed to fetch shop item descriptions",
+            Status::InternalServerError
+        )),
     }
 }
 
@@ -103,27 +121,37 @@ pub async fn shop_item_descs(
 pub async fn create_shop_item_desc(
     db: Connection<Db>,
     shop_item_desc: Json<ShopItemDesc>,
-) -> Result<Created<Json<ShopItemDesc>>, Status> {
+) -> ApiResult<ShopItemDesc> {
     let shop_item_desc_deser = ShopItemDesc {
         id: None,
         shop_item_id: shop_item_desc.shop_item_id,
         content: shop_item_desc.content.clone(),
     };
+    
     let result = match shop_item_desc_deser.add(db).await {
         Ok(query_result) => query_result,
         Err(error) => match error {
             Left(_) => {
-                return Err(Status::InternalServerError);
+                return Err(ApiError::new(
+                    "Failed to create shop item description",
+                    Status::InternalServerError
+                ));
             }
             Right(_) => {
-                return Err(Status::BadRequest);
+                return Err(ApiError::new(
+                    "Invalid shop_item_id",
+                    Status::BadRequest
+                ));
             }
         },
     };
 
     match result.id {
-        Some(_) => Ok(Created::new("/").body(Json(result))),
-        None => Err(Status::NotFound),
+        Some(_) => Ok(ApiResponse::success(result)),
+        None => Err(ApiError::new(
+            "Failed to create shop item description: No ID returned",
+            Status::NotFound
+        )),
     }
 }
 
@@ -135,14 +163,17 @@ pub async fn create_shop_item_desc(
 pub async fn create_shop_item_desc_many(
     mut db: Connection<Db>,
     shop_item_desc_many: Json<ShopItemDescMany>,
-) -> Result<Status, Status> {
+) -> ApiResult<()> {
     let mut tx = match (*db).begin().await {
         Ok(tx) => tx,
-        Err(error) => {
-            eprintln!("Error: Could not start transaction: {}", error);
-            return Err(Status::InternalServerError);
+        Err(_) => {
+            return Err(ApiError::new(
+                "Failed to start transaction",
+                Status::InternalServerError
+            ));
         }
     };
+
     for content in &shop_item_desc_many.contents {
         match sqlx::query_as!(
             ShopItemDesc,
@@ -154,18 +185,21 @@ pub async fn create_shop_item_desc_many(
         .await
         {
             Ok(_) => continue,
-            Err(error) => {
-                eprintln!("Error: Could not add shop item description: {}", error);
+            Err(_) => {
                 let _ = tx.rollback().await;
-                return Err(Status::InternalServerError);
+                return Err(ApiError::new(
+                    "Failed to create shop item descriptions",
+                    Status::InternalServerError
+                ));
             }
         };
     }
+
     match tx.commit().await {
-        Ok(_) => Ok(Status::Ok),
-        Err(error) => {
-            eprintln!("Error: Could not commit transaction: {}", error);
-            Err(Status::InternalServerError)
-        }
+        Ok(_) => Ok(ApiResponse::success(())),
+        Err(_) => Err(ApiError::new(
+            "Failed to commit transaction",
+            Status::InternalServerError
+        )),
     }
 }
