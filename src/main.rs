@@ -1,7 +1,6 @@
 #[macro_use]
 extern crate rocket;
 
-use db::blog_item::{BlogItem, Content};
 use db::project_item::{DescItem, ProjectItem};
 use db::tag::{ProjectToTechTag, Tag};
 use db::tag_category_join::TagCategory;
@@ -76,56 +75,6 @@ async fn create_user(
             Ok(Created::new("/").body(user))
         }
         Err(_) => Err(Status::InternalServerError),
-    }
-}
-
-#[get("/api/blogs")]
-async fn blogs(db: Connection<Db>) -> Result<Json<Vec<BlogItem>>, rocket::http::Status> {
-    match BlogItem::get_all(db).await {
-        Ok(results) => Ok(Json(results)),
-        Err(error) => {
-            eprintln!("Error: Could not fetch blog items: {}", error);
-            Err(rocket::http::Status::InternalServerError)
-        }
-    }
-}
-
-#[post("/api/blog", data = "<blog_item>", format = "json")]
-async fn create_blog(
-    db: Connection<Db>,
-    blog_item: Json<BlogItem>,
-) -> Result<Created<Json<BlogItem>>, rocket::http::Status> {
-    let blog_item_deser = BlogItem {
-        id: None,
-        blog_title: blog_item.blog_title.clone(),
-        header_img: blog_item.header_img.clone(),
-        content: blog_item.content.clone(),
-    };
-    let result = blog_item_deser.add(db).await;
-
-    match result {
-        Ok(query_result) => {
-            if query_result.id.is_some() {
-                Ok(Created::new("/").body(Json(query_result)))
-            } else {
-                Err(rocket::http::Status::InternalServerError)
-            }
-        }
-        Err(_) => Err(rocket::http::Status::InternalServerError),
-    }
-}
-
-#[get("/api/blog-content/<id>")]
-async fn blog_contents(
-    db: Connection<Db>,
-    id: i32,
-) -> Result<Json<Vec<Content>>, rocket::http::Status> {
-    match Content::get_all_from_blog(db, id).await {
-        Ok(results) => Ok(Json(results)),
-        Err(error) => {
-            eprintln!("Error: Could not fetch blog content: {}", error);
-            Err(rocket::http::Status::InternalServerError)
-        }
     }
 }
 
@@ -397,9 +346,9 @@ async fn rocket() -> _ {
                 routes::shop::shop_item_descs,
                 routes::shop::create_shop_item_desc,
                 routes::shop::create_shop_item_desc_many,
-                blogs,
-                blog_contents,
-                create_blog,
+                routes::blog::blogs,
+                routes::blog::blog_contents,
+                routes::blog::create_blog,
                 projects,
                 projects_by_tag,
                 tag_category,
