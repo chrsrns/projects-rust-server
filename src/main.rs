@@ -1,8 +1,6 @@
 #[macro_use]
 extern crate rocket;
 
-use db::tag::{ProjectToTechTag, Tag};
-use db::tag_category_join::TagCategory;
 use db::user::User;
 use rocket::http::{Method, Status};
 use rocket::response::status::Created;
@@ -11,8 +9,6 @@ use rocket::{fairing, Build};
 use rocket::Rocket;
 use rocket_cors::{AllowedOrigins, CorsOptions};
 use rocket_db_pools::{Connection, Database};
-use serde::{Deserialize, Serialize};
-use std::str::FromStr;
 
 mod db;
 mod routes;
@@ -61,83 +57,6 @@ async fn create_user(
     }
 }
 
-#[get("/api/tags")]
-async fn tags(db: Connection<Db>) -> Result<Json<Vec<Tag>>, rocket::http::Status> {
-    match Tag::get_all(db).await {
-        Ok(results) => Ok(Json(results)),
-        Err(_) => Err(rocket::http::Status::InternalServerError),
-    }
-}
-
-#[post("/api/tag", data = "<tag>", format = "json")]
-async fn create_tag(
-    db: Connection<Db>,
-    tag: Json<Tag>,
-) -> Result<Created<Json<Tag>>, rocket::http::Status> {
-    let tag_deser = Tag {
-        id: None,
-        text: tag.text.clone(),
-    };
-    let result = tag_deser.add_or_get(db).await;
-    match result {
-        Ok(result) => Ok(Created::new("/").body(Json(result))),
-        Err(_) => Err(rocket::http::Status::InternalServerError),
-    }
-}
-
-#[get("/api/tags-by-category/<category>")]
-async fn tags_by_category(
-    db: Connection<Db>,
-    category: String,
-) -> Result<Json<Vec<Tag>>, rocket::http::Status> {
-    let category = match TagCategory::from_str(category.as_str()) {
-        Ok(result) => result,
-        Err(_error) => return Err(rocket::http::Status::UnprocessableEntity),
-    };
-    let results = match Tag::get_tags_by_category(db, category).await {
-        Ok(result) => result,
-        Err(_error) => return Err(rocket::http::Status::InternalServerError),
-    };
-    Ok(Json(results))
-}
-
-#[get("/api/tags/by-project/<id>")]
-async fn tags_by_project(
-    db: Connection<Db>,
-    id: i32,
-) -> Result<Json<Vec<Tag>>, rocket::http::Status> {
-    let results = match Tag::get_tags_by_project(db, &id).await {
-        Ok(result) => result,
-        Err(_error) => return Err(rocket::http::Status::UnprocessableEntity),
-    };
-    Ok(Json(results))
-}
-
-#[derive(Serialize, Deserialize)]
-struct TagAndCategoryData {
-    pub tag: Tag,
-    pub category: TagCategory,
-}
-
-#[post("/api/tag_category", data = "<data>", format = "json")]
-async fn tag_category(db: Connection<Db>, data: Json<TagAndCategoryData>) -> Status {
-    let result = data.tag.add_category(db, &data.category).await;
-
-    match result {
-        Ok(_) => Status::Ok,
-        Err(_) => Status::InternalServerError,
-    }
-}
-
-#[post("/api/tag_project", data = "<data>", format = "json")]
-async fn tag_project(db: Connection<Db>, data: Json<ProjectToTechTag>) -> Status {
-    let result = data.add(db).await;
-
-    match result {
-        Ok(_) => Status::Ok,
-        Err(_) => Status::InternalServerError,
-    }
-}
 
 #[get("/api/users")]
 async fn users(db: Connection<Db>) -> Result<Json<Vec<User>>, rocket::http::Status> {
@@ -190,12 +109,12 @@ async fn rocket() -> _ {
                 routes::project::create_project_item,
                 routes::project::create_project_desc,
                 routes::project::create_project_desc_many,
-                tags,
-                tag_category,
-                tag_project,
-                create_tag,
-                tags_by_project,
-                tags_by_category,
+                routes::tag::tags,
+                routes::tag::tag_category,
+                routes::tag::tag_project,
+                routes::tag::create_tag,
+                routes::tag::tags_by_project,
+                routes::tag::tags_by_category,
                 users,
                 create_user,
             ],
