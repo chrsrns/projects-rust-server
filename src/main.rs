@@ -1,14 +1,11 @@
 #[macro_use]
 extern crate rocket;
 
-use db::user::User;
-use rocket::http::{Method, Status};
-use rocket::response::status::Created;
-use rocket::serde::json::Json;
+use rocket::http::Method;
 use rocket::{fairing, Build};
 use rocket::Rocket;
 use rocket_cors::{AllowedOrigins, CorsOptions};
-use rocket_db_pools::{Connection, Database};
+use rocket_db_pools::Database;
 
 mod db;
 mod routes;
@@ -27,42 +24,6 @@ pub async fn init_database(rocket: Rocket<Build>) -> fairing::Result {
             }
         },
         None => Err(rocket),
-    }
-}
-
-#[post("/api/user", data = "<user>", format = "json")]
-async fn create_user(
-    db: Connection<Db>,
-    user: Json<User>,
-) -> Result<Created<Json<User>>, Status> {
-    let user_deser = User {
-        id: None,
-        username: user.username.clone(),
-        upassword: user.upassword.clone(),
-        email: user.email.clone(),
-    };
-
-    match user_deser.add(db).await {
-        Ok(result) => {
-            let resulted_id = result.id.expect("This shouldn't have happened, but it did");
-            let user = Json(User {
-                id: Some(resulted_id),
-                username: user.username.clone(),
-                upassword: user.upassword.clone(),
-                email: user.email.clone(),
-            });
-            Ok(Created::new("/").body(user))
-        }
-        Err(_) => Err(Status::InternalServerError),
-    }
-}
-
-
-#[get("/api/users")]
-async fn users(db: Connection<Db>) -> Result<Json<Vec<User>>, rocket::http::Status> {
-    match User::get_all_users(db).await {
-        Ok(results) => Ok(Json(results)),
-        Err(_) => Err(rocket::http::Status::InternalServerError),
     }
 }
 
@@ -115,8 +76,8 @@ async fn rocket() -> _ {
                 routes::tag::create_tag,
                 routes::tag::tags_by_project,
                 routes::tag::tags_by_category,
-                users,
-                create_user,
+                routes::user::users,
+                routes::user::create_user,
             ],
         )
 }
