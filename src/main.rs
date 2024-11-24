@@ -3,7 +3,6 @@ extern crate rocket;
 
 use db::blog_item::{BlogItem, Content};
 use db::project_item::{DescItem, ProjectItem};
-use db::shop_item::{ShopImage, ShopItem, ShopItemDesc, ShopItemDescMany};
 use db::tag::{ProjectToTechTag, Tag};
 use db::tag_category_join::TagCategory;
 use db::user::User;
@@ -21,6 +20,7 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 mod db;
+mod routes;
 
 #[derive(Database)]
 #[database("sqlx")]
@@ -77,166 +77,6 @@ async fn create_user(
             Ok(Created::new("/").body(user))
         }
         Err(_) => Err(rocket::http::Status::InternalServerError),
-    }
-}
-
-#[get("/api/shopitems")]
-async fn shop_items(db: Connection<Db>) -> Result<Json<Vec<ShopItem>>, rocket::http::Status> {
-    match ShopItem::get_all(db).await {
-        Ok(results) => Ok(Json(results)),
-        Err(_) => Err(rocket::http::Status::InternalServerError),
-    }
-}
-#[post("/api/shopitem", data = "<shop_item>", format = "json")]
-async fn create_shop_item(
-    db: Connection<Db>,
-    mut shop_item: Json<ShopItem>,
-) -> Result<Created<Json<ShopItem>>, rocket::http::Status> {
-    let shop_item_deser = ShopItem {
-        id: None,
-        iname: shop_item.iname.clone(),
-        img_link: shop_item.img_link.clone(),
-        price: shop_item.price,
-    };
-    let result = shop_item_deser.add(db).await;
-
-    match result {
-        Ok(query_result) => {
-            if let Some(resulted_id) = query_result.id {
-                shop_item.id = Some(resulted_id);
-                Ok(Created::new("/").body(shop_item))
-            } else {
-                Err(rocket::http::Status::InternalServerError)
-            }
-        }
-        Err(_) => Err(rocket::http::Status::InternalServerError),
-    }
-}
-
-#[get("/api/shopitemimages/<id>")]
-async fn shop_item_images(
-    db: Connection<Db>,
-    id: i32,
-) -> Result<Json<Vec<ShopImage>>, rocket::http::Status> {
-    match ShopImage::get_all_from_shop_item(db, id).await {
-        Ok(results) => Ok(Json(results)),
-        Err(_) => Err(rocket::http::Status::InternalServerError),
-    }
-}
-
-#[post("/api/shopitemimage", data = "<shop_item_image>", format = "json")]
-async fn create_shop_item_image(
-    db: Connection<Db>,
-    shop_item_image: Json<ShopImage>,
-) -> Result<Created<Json<ShopImage>>, rocket::http::Status> {
-    let shop_item_desc_deser = ShopImage {
-        id: None,
-        shop_item_id: shop_item_image.shop_item_id,
-        tooltip: shop_item_image.tooltip.clone(),
-        img_link: shop_item_image.img_link.clone(),
-    };
-    let result = match shop_item_desc_deser.add(db).await {
-        Ok(query_result) => query_result,
-        Err(error) => match error {
-            Left(sql_error) => {
-                eprintln!("SQL Error occurred: {:?}", sql_error);
-                return Err(rocket::http::Status::InternalServerError);
-            }
-            Right(_) => {
-                eprintln!("Type not found for 'shop_item_id'");
-                return Err(rocket::http::Status::BadRequest);
-            }
-        },
-    };
-
-    match result.id {
-        Some(_) => Ok(Created::new("/").body(Json(result))),
-        None => {
-            eprintln!("Error: Row not found for the given shop item image.");
-            Err(rocket::http::Status::NotFound)
-        }
-    }
-}
-
-#[get("/api/shopitemdescs/<id>")]
-async fn shop_item_descs(
-    db: Connection<Db>,
-    id: i32,
-) -> Result<Json<Vec<ShopItemDesc>>, rocket::http::Status> {
-    match ShopItemDesc::get_all_from_shop_item(db, id).await {
-        Ok(results) => Ok(Json(results)),
-        Err(_) => Err(rocket::http::Status::InternalServerError),
-    }
-}
-
-#[post("/api/shopitemdesc", data = "<shop_item_desc>", format = "json")]
-async fn create_shop_item_desc(
-    db: Connection<Db>,
-    shop_item_desc: Json<ShopItemDesc>,
-) -> Result<Created<Json<ShopItemDesc>>, rocket::http::Status> {
-    let shop_item_desc_deser = ShopItemDesc {
-        id: None,
-        shop_item_id: shop_item_desc.shop_item_id,
-        content: shop_item_desc.content.clone(),
-    };
-    let result = match shop_item_desc_deser.add(db).await {
-        Ok(query_result) => query_result,
-        Err(error) => match error {
-            Left(_) => {
-                return Err(rocket::http::Status::InternalServerError);
-            }
-            Right(_) => {
-                return Err(rocket::http::Status::BadRequest);
-            }
-        },
-    };
-
-    match result.id {
-        Some(_) => Ok(Created::new("/").body(Json(result))),
-        None => Err(rocket::http::Status::NotFound),
-    }
-}
-
-#[post(
-    "/api/shopitemdesc/many",
-    data = "<shop_item_desc_many>",
-    format = "json"
-)]
-async fn create_shop_item_desc_many(
-    mut db: Connection<Db>,
-    shop_item_desc_many: Json<ShopItemDescMany>,
-) -> Result<Status, rocket::http::Status> {
-    let mut tx = match (*db).begin().await {
-        Ok(tx) => tx,
-        Err(error) => {
-            eprintln!("Error: Could not start transaction: {}", error);
-            return Err(rocket::http::Status::InternalServerError);
-        }
-    };
-    for content in &shop_item_desc_many.contents {
-        match sqlx::query_as!(
-            ShopItemDesc,
-            "INSERT INTO shop_item_desc (shop_item_id, content) VALUES ($1, $2)",
-            shop_item_desc_many.shop_item_id,
-            content
-        )
-        .execute(&mut *tx)
-        .await
-        {
-            Ok(_) => continue,
-            Err(error) => {
-                eprintln!("Error: Could not add shop item description: {}", error);
-                let _ = tx.rollback().await;
-                return Err(rocket::http::Status::InternalServerError);
-            }
-        };
-    }
-    match tx.commit().await {
-        Ok(_) => Ok(Status::Ok),
-        Err(error) => {
-            eprintln!("Error: Could not commit transaction: {}", error);
-            Err(rocket::http::Status::InternalServerError)
-        }
     }
 }
 
@@ -527,54 +367,55 @@ async fn users(db: Connection<Db>) -> Result<Json<Vec<User>>, rocket::http::Stat
 
 #[launch]
 async fn rocket() -> _ {
-    let compile_env = std::env::var("COMPILE_ENV").unwrap_or("prod".to_string());
-    let rocket_instance = rocket::build().attach(Db::init()).mount(
-        "/",
-        routes![
-            files,
-            shop_solidjs,
-            users,
-            create_user,
-            shop_items,
-            create_shop_item,
-            blogs,
-            blog_contents,
-            create_blog,
-            shop_item_descs,
-            create_shop_item_desc,
-            create_shop_item_desc_many,
-            shop_item_images,
-            create_shop_item_image,
-            projects,
-            projects_by_tag,
-            tag_category,
-            tag_project,
-            add_tags_to_project,
-            project_descs,
-            create_project_item,
-            create_project_desc,
-            create_project_desc_many,
-            tags,
-            create_tag,
-            tags_by_project,
-            tags_by_category
-        ],
-    );
+    let cors = CorsOptions::default()
+        .allowed_origins(AllowedOrigins::all())
+        .allowed_methods(
+            vec![Method::Get, Method::Post, Method::Patch]
+                .into_iter()
+                .map(From::from)
+                .collect(),
+        )
+        .allow_credentials(true);
 
-    if compile_env == r#"prod"# {
-        println!("Rocket is in prod mode. CORS is in default state.");
-        rocket_instance
-    } else {
-        println!("Rocket is in Dev mode. CORS will allow prod-unsafe features.");
-        let cors = CorsOptions::default()
-            .allowed_origins(AllowedOrigins::all())
-            .allowed_methods(
-                vec![Method::Get, Method::Post, Method::Patch]
-                    .into_iter()
-                    .map(From::from)
-                    .collect(),
-            )
-            .allow_credentials(true);
-        rocket_instance.attach(cors.to_cors().unwrap())
-    }
+    let rocket = rocket::build();
+    let rocket = match init_database(rocket).await {
+        Ok(rocket) => rocket,
+        Err(r) => r,
+    };
+
+    rocket
+        .attach(cors.to_cors().unwrap())
+        .attach(Db::init())
+        .mount(
+            "/",
+            routes![
+                routes::static_files::solidjs_assets,
+                routes::static_files::solidjs_index,
+                routes::shop::shop_items,
+                routes::shop::create_shop_item,
+                routes::shop::shop_item_images,
+                routes::shop::create_shop_item_image,
+                routes::shop::shop_item_descs,
+                routes::shop::create_shop_item_desc,
+                routes::shop::create_shop_item_desc_many,
+                blogs,
+                blog_contents,
+                create_blog,
+                projects,
+                projects_by_tag,
+                tag_category,
+                tag_project,
+                add_tags_to_project,
+                project_descs,
+                create_project_item,
+                create_project_desc,
+                create_project_desc_many,
+                tags,
+                create_tag,
+                tags_by_project,
+                tags_by_category,
+                users,
+                create_user,
+            ],
+        )
 }
