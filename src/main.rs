@@ -37,20 +37,6 @@ pub async fn init_database(rocket: Rocket<Build>) -> fairing::Result {
     }
 }
 
-#[get("/online-shopping-solidjs/assets/<file..>")]
-async fn shop_solidjs(file: PathBuf) -> Option<NamedFile> {
-    NamedFile::open(Path::new("online-shopping-solidjs/assets/").join(file))
-        .await
-        .ok()
-}
-
-#[get("/online-shopping-solidjs/<_..>", rank = 2)]
-async fn files() -> Option<NamedFile> {
-    NamedFile::open(Path::new("online-shopping-solidjs/index.html"))
-        .await
-        .ok()
-}
-
 #[post("/api/user", data = "<user>", format = "json")]
 async fn create_user(
     db: Connection<Db>,
