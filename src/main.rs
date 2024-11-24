@@ -10,7 +10,8 @@ use rocket::http::{Method, Status};
 use rocket::response::status::Created;
 use rocket::serde::json::Json;
 use rocket::{fairing, Build};
-use rocket::{fs::NamedFile, Rocket};
+use rocket::fs::NamedFile;
+use rocket::{Rocket};
 use rocket_cors::{AllowedOrigins, CorsOptions};
 use rocket_db_pools::{Connection, Database};
 use serde::{Deserialize, Serialize};
@@ -57,7 +58,7 @@ async fn files() -> Option<NamedFile> {
 async fn create_user(
     db: Connection<Db>,
     user: Json<User>,
-) -> Result<Created<Json<User>>, rocket::http::Status> {
+) -> Result<Created<Json<User>>, Status> {
     let user_deser = User {
         id: None,
         username: user.username.clone(),
@@ -76,7 +77,7 @@ async fn create_user(
             });
             Ok(Created::new("/").body(user))
         }
-        Err(_) => Err(rocket::http::Status::InternalServerError),
+        Err(_) => Err(Status::InternalServerError),
     }
 }
 
