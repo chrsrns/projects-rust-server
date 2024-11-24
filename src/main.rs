@@ -1,7 +1,6 @@
 #[macro_use]
 extern crate rocket;
 
-use db::project_item::{DescItem, ProjectItem};
 use db::tag::{ProjectToTechTag, Tag};
 use db::tag_category_join::TagCategory;
 use db::user::User;
@@ -13,8 +12,6 @@ use rocket::Rocket;
 use rocket_cors::{AllowedOrigins, CorsOptions};
 use rocket_db_pools::{Connection, Database};
 use serde::{Deserialize, Serialize};
-use sqlx::Acquire;
-use sqlx::Either::{Left, Right};
 use std::str::FromStr;
 
 mod db;
@@ -61,155 +58,6 @@ async fn create_user(
             Ok(Created::new("/").body(user))
         }
         Err(_) => Err(Status::InternalServerError),
-    }
-}
-
-#[get("/api/projects")]
-async fn projects(db: Connection<Db>) -> Result<Json<Vec<ProjectItem>>, rocket::http::Status> {
-    let results = match ProjectItem::get_all(db).await {
-        Ok(results) => results,
-        Err(error) => {
-            eprintln!("Error: Could not fetch projects: {}", error);
-            return Err(rocket::http::Status::InternalServerError);
-        }
-    };
-    Ok(Json(results))
-}
-
-#[get("/api/projects-by-tag/<tag_id>")]
-async fn projects_by_tag(
-    db: Connection<Db>,
-    tag_id: i32,
-) -> Result<Json<Vec<ProjectItem>>, rocket::http::Status> {
-    let results = match ProjectItem::get_projects_by_tag(db, tag_id).await {
-        Ok(results) => results,
-        Err(error) => {
-            eprintln!("Error: Could not fetch projects by tag: {}", error);
-            return Err(rocket::http::Status::InternalServerError);
-        }
-    };
-    Ok(Json(results))
-}
-
-#[post("/api/project", data = "<project_item>", format = "json")]
-async fn create_project_item(
-    db: Connection<Db>,
-    project_item: Json<ProjectItem>,
-) -> Result<Created<Json<ProjectItem>>, rocket::http::Status> {
-    let project_item_deser = ProjectItem {
-        id: None,
-        title: project_item.title.clone(),
-        thumbnail_img_link: project_item.thumbnail_img_link.clone(),
-        desc: project_item.desc.clone(),
-    };
-    let result = match project_item_deser.add(db).await {
-        Ok(result) => result,
-        Err(error) => {
-            eprintln!("Error: Could not add project item: {}", error);
-            return Err(rocket::http::Status::InternalServerError);
-        }
-    };
-
-    match result.id {
-        Some(_) => Ok(Created::new("/").body(Json(result))),
-        None => {
-            eprintln!("Error: Could not add project item: Row not found for the given id");
-            Err(rocket::http::Status::InternalServerError)
-        }
-    }
-}
-
-#[derive(Serialize, Deserialize)]
-struct ProjectToTagsData {
-    pub project: ProjectItem,
-    pub tags: Vec<Tag>,
-}
-#[post("/api/project/tag", data = "<data>", format = "json")]
-async fn add_tags_to_project(db: Connection<Db>, data: Json<ProjectToTagsData>) -> Status {
-    let project_item = &data.project;
-    // Converts vec of values to vec of references
-    let tags = data.tags.iter().collect();
-
-    match project_item.add_tag(db, tags).await {
-        Ok(_result) => Status::Ok,
-        Err(_error) => Status::UnprocessableEntity,
-    }
-}
-
-#[get("/api/project_descs/<id>")]
-async fn project_descs(
-    db: Connection<Db>,
-    id: i32,
-) -> Result<Json<Vec<DescItem>>, rocket::http::Status> {
-    match DescItem::get_all_from_project(db, id).await {
-        Ok(results) => Ok(Json(results)),
-        Err(error) => {
-            eprintln!("Error: Could not fetch project descriptions: {}", error);
-            Err(rocket::http::Status::InternalServerError)
-        }
-    }
-}
-
-#[post("/api/project_desc", data = "<project_desc>", format = "json")]
-async fn create_project_desc(
-    db: Connection<Db>,
-    project_desc: Json<DescItem>,
-) -> Result<Created<Json<DescItem>>, rocket::http::Status> {
-    let project_desc_deser = DescItem {
-        id: None,
-        project_id: project_desc.project_id,
-        content: project_desc.content.clone(),
-    };
-    let result = match project_desc_deser.add(db).await {
-        Ok(query_result) => query_result,
-        Err(error) => match error {
-            Left(_) => {
-                return Err(rocket::http::Status::BadRequest);
-            }
-            Right(_) => {
-                return Err(rocket::http::Status::InternalServerError);
-            }
-        },
-    };
-    match result.id {
-        Some(_) => Ok(Created::new("/").body(Json(result))),
-        None => Err(rocket::http::Status::NotFound),
-    }
-}
-
-#[post("/api/project_desc", data = "<project_descs>", format = "json")]
-async fn create_project_desc_many(
-    mut db: Connection<Db>,
-    project_descs: Json<Vec<DescItem>>,
-) -> Result<Status, rocket::http::Status> {
-    let mut tx = match (*db).begin().await {
-        Ok(tx) => tx,
-        Err(error) => {
-            eprintln!("Error: Could not start transaction: {}", error);
-            return Err(rocket::http::Status::InternalServerError);
-        }
-    };
-
-    // TODO: Janky Error handling. Rewrite to be similar to many function somewhere above
-    for project_desc in project_descs.iter() {
-        let result = project_desc.add_tx(&mut tx).await;
-        match result {
-            Err(error) => {
-                if error.is_left() {
-                    return Err(rocket::http::Status::InternalServerError);
-                } else {
-                    return Ok(Status::UnprocessableEntity);
-                }
-            }
-            _ => continue,
-        }
-    }
-    match tx.commit().await {
-        Ok(_) => Ok(Status::Ok),
-        Err(error) => {
-            eprintln!("Error: Could not commit transaction: {}", error);
-            Err(rocket::http::Status::InternalServerError)
-        }
     }
 }
 
@@ -335,16 +183,16 @@ async fn rocket() -> _ {
                 routes::blog::blogs,
                 routes::blog::blog_contents,
                 routes::blog::create_blog,
-                projects,
-                projects_by_tag,
+                routes::project::projects,
+                routes::project::projects_by_tag,
+                routes::project::add_tags_to_project,
+                routes::project::project_descs,
+                routes::project::create_project_item,
+                routes::project::create_project_desc,
+                routes::project::create_project_desc_many,
+                tags,
                 tag_category,
                 tag_project,
-                add_tags_to_project,
-                project_descs,
-                create_project_item,
-                create_project_desc,
-                create_project_desc_many,
-                tags,
                 create_tag,
                 tags_by_project,
                 tags_by_category,
