@@ -1,3 +1,8 @@
+//! Main application entry point and server configuration
+//! 
+//! This module sets up the Rocket web server, configures CORS,
+//! initializes the database connection, and mounts all route handlers.
+
 #[macro_use]
 extern crate rocket;
 
@@ -11,10 +16,21 @@ mod db;
 mod routes;
 mod api;
 
+/// Database connection pool wrapper for PostgreSQL
+/// 
+/// This struct represents the connection to our PostgreSQL database
+/// using SQLx as the database driver.
 #[derive(Database)]
 #[database("sqlx")]
 pub struct Db(sqlx::PgPool);
 
+/// Initializes the database and runs migrations
+/// 
+/// # Arguments
+/// * `rocket` - The Rocket instance to attach the database to
+/// 
+/// # Returns
+/// * `fairing::Result` - Success if database initialization and migrations succeed
 pub async fn init_database(rocket: Rocket<Build>) -> fairing::Result {
     match Db::fetch(&rocket) {
         Some(db) => match sqlx::migrate!("src/db/migrations").run(&**db).await {
@@ -28,6 +44,16 @@ pub async fn init_database(rocket: Rocket<Build>) -> fairing::Result {
     }
 }
 
+/// Configures and launches the Rocket web server
+/// 
+/// This function:
+/// - Sets up CORS configuration
+/// - Initializes the database connection
+/// - Mounts all route handlers
+/// - Launches the web server
+/// 
+/// # Returns
+/// * The configured Rocket instance
 #[launch]
 async fn rocket() -> _ {
     let cors = CorsOptions::default()

@@ -1,3 +1,10 @@
+//! Project management routes
+//! 
+//! This module handles all project-related API endpoints, including:
+//! - Project CRUD operations
+//! - Project description management
+//! - Project-tag associations
+
 use rocket::http::Status;
 use rocket::serde::json::Json;
 use rocket::{get, post};
@@ -11,6 +18,10 @@ use crate::db::tag::Tag;
 use crate::Db;
 use crate::api::{ApiResponse, ApiResult, ApiError};
 
+/// Retrieves all projects
+/// 
+/// # Returns
+/// * `ApiResult<Vec<ProjectItem>>` - List of all projects on success
 #[get("/api/projects")]
 pub async fn projects(db: Connection<Db>) -> ApiResult<Vec<ProjectItem>> {
     match ProjectItem::get_all(db).await {
@@ -21,6 +32,14 @@ pub async fn projects(db: Connection<Db>) -> ApiResult<Vec<ProjectItem>> {
     }
 }
 
+/// Retrieves all projects associated with a specific tag
+/// 
+/// # Arguments
+/// * `db` - Database connection
+/// * `tag_id` - ID of the tag to filter projects by
+/// 
+/// # Returns
+/// * `ApiResult<Vec<ProjectItem>>` - List of projects with the specified tag
 #[get("/api/projects-by-tag/<tag_id>")]
 pub async fn projects_by_tag(
     db: Connection<Db>,
@@ -34,12 +53,23 @@ pub async fn projects_by_tag(
     }
 }
 
+/// Data structure for associating multiple tags with a project
 #[derive(Serialize, Deserialize)]
 pub struct ProjectToTagsData {
+    /// The project to add tags to
     pub project: ProjectItem,
+    /// List of tags to associate with the project
     pub tags: Vec<Tag>,
 }
 
+/// Associates multiple tags with a project
+/// 
+/// # Arguments
+/// * `db` - Database connection
+/// * `data` - Project and tags data
+/// 
+/// # Returns
+/// * `ApiResult<()>` - Success or failure of the operation
 #[post("/api/project/tag", data = "<data>", format = "json")]
 pub async fn add_tags_to_project(db: Connection<Db>, data: Json<ProjectToTagsData>) -> ApiResult<()> {
     let project_item = &data.project;
@@ -56,6 +86,14 @@ pub async fn add_tags_to_project(db: Connection<Db>, data: Json<ProjectToTagsDat
     }
 }
 
+/// Retrieves all descriptions for a specific project
+/// 
+/// # Arguments
+/// * `db` - Database connection
+/// * `id` - Project ID
+/// 
+/// # Returns
+/// * `ApiResult<Vec<DescItem>>` - List of project descriptions
 #[get("/api/project_descs/<id>")]
 pub async fn project_descs(
     db: Connection<Db>,
@@ -72,6 +110,14 @@ pub async fn project_descs(
     }
 }
 
+/// Creates a new project
+/// 
+/// # Arguments
+/// * `db` - Database connection
+/// * `project_item` - Project data to create
+/// 
+/// # Returns
+/// * `ApiResult<ProjectItem>` - Created project with assigned ID
 #[post("/api/project", data = "<project_item>", format = "json")]
 pub async fn create_project_item(
     db: Connection<Db>,
@@ -103,6 +149,14 @@ pub async fn create_project_item(
     }
 }
 
+/// Creates a new project description
+/// 
+/// # Arguments
+/// * `db` - Database connection
+/// * `project_desc` - Project description data
+/// 
+/// # Returns
+/// * `ApiResult<DescItem>` - Created description with assigned ID
 #[post("/api/project_desc", data = "<project_desc>", format = "json")]
 pub async fn create_project_desc(
     db: Connection<Db>,
@@ -141,7 +195,15 @@ pub async fn create_project_desc(
     }
 }
 
-#[post("/api/project_desc", data = "<project_descs>", format = "json")]
+/// Creates multiple project descriptions in a single transaction
+/// 
+/// # Arguments
+/// * `db` - Database connection
+/// * `project_descs` - List of project descriptions to create
+/// 
+/// # Returns
+/// * `ApiResult<()>` - Success or failure of the operation
+#[post("/api/project_desc_many", data = "<project_descs>", format = "json")]
 pub async fn create_project_desc_many(
     mut db: Connection<Db>,
     project_descs: Json<Vec<DescItem>>,

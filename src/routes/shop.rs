@@ -1,3 +1,10 @@
+//! Shop management routes
+//! 
+//! This module handles all shop-related API endpoints, including:
+//! - Shop item CRUD operations
+//! - Shop item image management
+//! - Shop item description management
+
 use rocket::http::Status;
 use rocket::serde::json::Json;
 use rocket::{get, post};
@@ -9,6 +16,10 @@ use crate::api::{ApiResponse, ApiResult, ApiError};
 use sqlx::Either::{Left, Right};
 use sqlx::Acquire;
 
+/// Retrieves all shop items
+/// 
+/// # Returns
+/// * `ApiResult<Vec<ShopItem>>` - List of all shop items on success
 #[get("/api/shopitems")]
 pub async fn shop_items(db: Connection<Db>) -> ApiResult<Vec<ShopItem>> {
     match ShopItem::get_all(db).await {
@@ -20,6 +31,14 @@ pub async fn shop_items(db: Connection<Db>) -> ApiResult<Vec<ShopItem>> {
     }
 }
 
+/// Creates a new shop item
+/// 
+/// # Arguments
+/// * `db` - Database connection
+/// * `shop_item` - Shop item data to create
+/// 
+/// # Returns
+/// * `ApiResult<ShopItem>` - Created shop item with assigned ID
 #[post("/api/shopitem", data = "<shop_item>", format = "json")]
 pub async fn create_shop_item(
     db: Connection<Db>,
@@ -50,6 +69,14 @@ pub async fn create_shop_item(
     }
 }
 
+/// Retrieves all images associated with a specific shop item
+/// 
+/// # Arguments
+/// * `db` - Database connection
+/// * `id` - Shop item ID
+/// 
+/// # Returns
+/// * `ApiResult<Vec<ShopImage>>` - List of shop item images
 #[get("/api/shopitemimages/<id>")]
 pub async fn shop_item_images(
     db: Connection<Db>,
@@ -64,6 +91,14 @@ pub async fn shop_item_images(
     }
 }
 
+/// Creates a new shop item image
+/// 
+/// # Arguments
+/// * `db` - Database connection
+/// * `shop_item_image` - Shop item image data to create
+/// 
+/// # Returns
+/// * `ApiResult<ShopImage>` - Created shop item image with assigned ID
 #[post("/api/shopitemimage", data = "<shop_item_image>", format = "json")]
 pub async fn create_shop_item_image(
     db: Connection<Db>,
@@ -103,6 +138,14 @@ pub async fn create_shop_item_image(
     }
 }
 
+/// Retrieves all descriptions for a specific shop item
+/// 
+/// # Arguments
+/// * `db` - Database connection
+/// * `id` - Shop item ID
+/// 
+/// # Returns
+/// * `ApiResult<Vec<ShopItemDesc>>` - List of shop item descriptions
 #[get("/api/shopitemdescs/<id>")]
 pub async fn shop_item_descs(
     db: Connection<Db>,
@@ -117,6 +160,14 @@ pub async fn shop_item_descs(
     }
 }
 
+/// Creates a new shop item description
+/// 
+/// # Arguments
+/// * `db` - Database connection
+/// * `shop_item_desc` - Shop item description data to create
+/// 
+/// # Returns
+/// * `ApiResult<ShopItemDesc>` - Created shop item description with assigned ID
 #[post("/api/shopitemdesc", data = "<shop_item_desc>", format = "json")]
 pub async fn create_shop_item_desc(
     db: Connection<Db>,
@@ -155,11 +206,15 @@ pub async fn create_shop_item_desc(
     }
 }
 
-#[post(
-    "/api/shopitemdesc/many",
-    data = "<shop_item_desc_many>",
-    format = "json"
-)]
+/// Creates multiple shop item descriptions in a single transaction
+/// 
+/// # Arguments
+/// * `db` - Database connection
+/// * `shop_item_desc_many` - Multiple shop item descriptions to create
+/// 
+/// # Returns
+/// * `ApiResult<()>` - Success or failure of the operation
+#[post("/api/shopitemdesc/many", data = "<shop_item_desc_many>", format = "json")]
 pub async fn create_shop_item_desc_many(
     mut db: Connection<Db>,
     shop_item_desc_many: Json<ShopItemDescMany>,
