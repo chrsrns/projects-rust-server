@@ -27,7 +27,10 @@ pub async fn create_user(
 
     match user_deser.add(db).await {
         Ok(result) => {
-            let resulted_id = result.id.expect("This shouldn't have happened, but it did");
+            let resulted_id = match result.id {
+                Some(id) => id,
+                None => return Err(Status::InternalServerError),
+            };
             let user = Json(User {
                 id: Some(resulted_id),
                 username: user.username.clone(),
